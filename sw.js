@@ -1,5 +1,5 @@
 /* Service Worker — Cagnotte HLM 2 (PWA) */
-const CACHE_VERSION = 'cagnotte-v1';
+const CACHE_VERSION = 'cagnotte-v2';
 const APP_SHELL = [
   './',
   './index.html',
