@@ -4,15 +4,9 @@
     ".write": false,
 
     "cagnotte_db": {
+      "//": "Application temporaire (1 mois max) : aucune restriction volontairement",
       ".read": true,
-      ".write": true,
-      "$donId": {
-        ".validate": "newData.hasChildren(['name','amount'])",
-        "name":   { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100" },
-        "amount": { ".validate": "newData.isNumber() && newData.val() > 0" },
-        "ts":     { ".validate": "newData.isNumber()" },
-        "$autre": { ".validate": false }
-      }
+      ".write": true
     },
 
     "menages": {
