@@ -2,8 +2,23 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Cagnotte Quartier HLM 2</title>
+
+<!-- ===== PWA ===== -->
+<meta name="description" content="Cagnotte solidaire du quartier HLM 2 pour l'éclairage et la sécurité. Suivez les dons en temps réel et contribuez via Wave ou Orange Money.">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+
+<!-- iOS / Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cagnotte HLM 2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 <style>
@@ -191,6 +206,172 @@
         opacity: 0; pointer-events: none; transition: opacity 0.25s;
     }
     .toast.show { opacity: 1; }
+
+    /* ================= PWA — Bannière d'installation ================= */
+    .install-banner {
+        position: fixed;
+        left: 50%;
+        bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%) translateY(140%);
+        width: min(560px, calc(100% - 24px));
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 12px 40px rgba(15,23,42,0.28);
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        z-index: 900;
+        opacity: 0;
+        transition: transform 0.42s cubic-bezier(.2,.9,.3,1.2), opacity 0.42s;
+        border: 1px solid #eef2f7;
+    }
+    .install-banner.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .install-banner .ib-icon {
+        width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(15,23,42,0.18);
+    }
+    .install-banner .ib-text { flex: 1; min-width: 0; }
+    .install-banner .ib-text strong { display: block; font-size: 0.95rem; color: var(--ink); }
+    .install-banner .ib-text span { font-size: 0.78rem; color: var(--muted); }
+    .install-banner .ib-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .install-banner .ib-install {
+        background: var(--blue); color: #fff; border: none;
+        padding: 10px 16px; border-radius: 10px; font-weight: 700;
+        font-size: 0.9rem; cursor: pointer; white-space: nowrap;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .install-banner .ib-install:hover { background: #1d4ed8; }
+    .install-banner .ib-close {
+        border: none; background: #f1f5f9; color: var(--muted);
+        width: 34px; height: 34px; border-radius: 9px; cursor: pointer;
+        font-size: 1.1rem; line-height: 1; flex-shrink: 0;
+    }
+    .install-banner .ib-close:hover { background: #e2e8f0; }
+
+    /* Bouton d'installation flottant discret (rappel permanent) */
+    .install-fab {
+        position: fixed;
+        right: calc(14px + env(safe-area-inset-right, 0px));
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        background: var(--gold);
+        color: #1a1200;
+        border: none;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-weight: 800;
+        font-size: 0.9rem;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(246,168,33,0.45);
+        display: none;
+        align-items: center;
+        gap: 8px;
+        z-index: 850;
+        animation: fabPulse 2.4s ease-in-out infinite;
+    }
+    .install-fab.show { display: flex; }
+    @keyframes fabPulse {
+        0%, 100% { box-shadow: 0 8px 24px rgba(246,168,33,0.45); }
+        50% { box-shadow: 0 8px 30px rgba(246,168,33,0.75); }
+    }
+
+    /* Modale d'instructions (iOS / navigateurs sans prompt natif) */
+    .install-modal {
+        position: fixed; inset: 0; z-index: 950;
+        background: rgba(15,23,42,0.55);
+        backdrop-filter: blur(3px);
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        padding: 0;
+    }
+    .install-modal.show { display: flex; }
+    .install-modal .im-sheet {
+        background: #fff;
+        width: 100%;
+        max-width: 560px;
+        border-radius: 20px 20px 0 0;
+        padding: 22px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -8px 40px rgba(0,0,0,0.3);
+        animation: sheetUp 0.35s cubic-bezier(.2,.9,.3,1);
+    }
+    @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .install-modal .im-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .install-modal .im-head img { width: 48px; height: 48px; border-radius: 12px; }
+    .install-modal .im-head h3 { font-size: 1.05rem; color: var(--ink); }
+    .install-modal .im-head p { font-size: 0.8rem; color: var(--muted); }
+    .install-modal ol { list-style: none; counter-reset: step; display: grid; gap: 12px; }
+    .install-modal li {
+        counter-increment: step;
+        display: flex; align-items: center; gap: 12px;
+        font-size: 0.9rem; color: var(--ink); line-height: 1.45;
+    }
+    .install-modal li .im-txt { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .install-modal li::before {
+        content: counter(step);
+        width: 28px; height: 28px; flex-shrink: 0;
+        background: var(--gold-soft); color: #92600a;
+        border: 1.5px solid #fbd38d; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 0.85rem;
+    }
+    .install-modal li svg { vertical-align: middle; }
+    .install-modal .im-close {
+        margin-top: 20px; width: 100%;
+        background: #f1f5f9; color: var(--ink); border: none;
+        padding: 13px; border-radius: 12px; font-weight: 700; cursor: pointer;
+        font-size: 0.95rem;
+    }
+    .install-modal .im-close:hover { background: #e2e8f0; }
+
+    /* ================= Responsive — Media queries ================= */
+
+    /* Très petits écrans (≤ 380px) */
+    @media (max-width: 380px) {
+        body { padding: 14px 10px 32px; }
+        .hero h1 { font-size: 1.08rem; }
+        .hero svg { width: 44px; height: 54px; }
+        .card { padding: 16px; border-radius: 14px; }
+        .stat .value { font-size: 1.15rem; }
+        .pay-row { font-size: 0.86rem; }
+        form.add input { flex: 1 1 100%; }
+        form.add button { width: 100%; justify-content: center; }
+        .install-banner { padding: 12px; gap: 10px; }
+        .install-banner .ib-icon { width: 44px; height: 44px; }
+        .install-banner .ib-install { padding: 9px 12px; font-size: 0.85rem; }
+    }
+
+    /* Petits écrans (≤ 480px) : formulaire empilé */
+    @media (max-width: 480px) {
+        form.add button { flex: 1 1 100%; justify-content: center; }
+        .wa-actions { flex-direction: column; }
+        .wa-btn, .wa-btn.copy { width: 100%; min-width: 0; flex: 1 1 auto; }
+    }
+
+    /* Tablettes et plus (≥ 640px) : hero agrandi, stats aérées */
+    @media (min-width: 640px) {
+        body { padding: 28px 20px 48px; }
+        .hero h1 { font-size: 1.5rem; }
+        .stats { gap: 16px; }
+        .stat { padding: 18px 12px; }
+        .stat .value { font-size: 1.6rem; }
+        .card { padding: 24px; }
+    }
+
+    /* Bureau (≥ 900px) : conteneur plus large, ombre de fond */
+    @media (min-width: 900px) {
+        .container { max-width: 680px; }
+    }
+
+    /* Orientation paysage sur mobile : réduit la hauteur du header sombre */
+    @media (max-height: 480px) and (orientation: landscape) {
+        body { background: linear-gradient(180deg, #0f172a 0%, #1e293b 150px, #f1f5f9 150px); }
+    }
+
+    /* Respect des préférences de mouvement réduit */
+    @media (prefers-reduced-motion: reduce) {
+        .install-banner, .install-fab, .install-modal .im-sheet { animation: none !important; transition: opacity 0.2s !important; }
+    }
 </style>
 </head>
 <body>
@@ -306,6 +487,43 @@
     </div>
 
     <div class="footer">Base : Firebase RTDB (nœud <b>cagnotte_db</b>) · Paiement toujours manuel via Wave / OM</div>
+</div>
+
+<!-- ===== PWA : Bannière d'installation ===== -->
+<div class="install-banner" id="installBanner" role="dialog" aria-label="Installer l'application">
+    <img class="ib-icon" src="icon-192.png" alt="Icône Cagnotte">
+    <div class="ib-text">
+        <strong>Installer l'application</strong>
+        <span>Accès rapide depuis votre écran d'accueil, même hors-ligne.</span>
+    </div>
+    <div class="ib-actions">
+        <button class="ib-install" id="ibInstallBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+            Installer
+        </button>
+        <button class="ib-close" id="ibCloseBtn" aria-label="Fermer">&times;</button>
+    </div>
+</div>
+
+<!-- ===== PWA : Bouton flottant (rappel permanent) ===== -->
+<button class="install-fab" id="installFab" aria-label="Installer l'application">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="#1a1200" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="#1a1200" stroke-width="2.2" stroke-linecap="round"/></svg>
+    Installer l'app
+</button>
+
+<!-- ===== PWA : Modale d'instructions (iOS / sans prompt natif) ===== -->
+<div class="install-modal" id="installModal" role="dialog" aria-modal="true" aria-label="Comment installer l'application">
+    <div class="im-sheet">
+        <div class="im-head">
+            <img src="icon-192.png" alt="Icône Cagnotte">
+            <div>
+                <h3>Installer sur votre écran d'accueil</h3>
+                <p id="imIntro">Suivez ces étapes pour ajouter l'application.</p>
+            </div>
+        </div>
+        <ol id="imSteps"></ol>
+        <button class="im-close" id="imCloseBtn">J'ai compris</button>
+    </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -557,6 +775,150 @@
         const j = daysLeft();
         const el = document.getElementById('jday');
         el.textContent = j > 0 ? `⏳ J-${j}` : j === 0 ? '⏳ Dernier jour !' : '✅ Collecte terminée';
+    })();
+
+    // ======================================================================
+    //  PWA — Service Worker + Invite d'installation professionnelle
+    // ======================================================================
+    (function pwa() {
+        // --- Enregistrement du Service Worker ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {/* silencieux */});
+            });
+        }
+
+        const banner   = document.getElementById('installBanner');
+        const fab       = document.getElementById('installFab');
+        const modal     = document.getElementById('installModal');
+        const installBtn = document.getElementById('ibInstallBtn');
+        const closeBtn   = document.getElementById('ibCloseBtn');
+        const fabBtn     = fab;
+        const modalClose = document.getElementById('imCloseBtn');
+        const imSteps    = document.getElementById('imSteps');
+        const imIntro    = document.getElementById('imIntro');
+
+        let deferredPrompt = null;
+        let bannerTimer = null;
+
+        // --- Détection de la plateforme ---
+        const ua = navigator.userAgent || '';
+        const isIOS = /iphone|ipad|ipod/i.test(ua) ||
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isAndroid = /android/i.test(ua);
+
+        // --- L'app est-elle déjà installée ? ---
+        function isInstalled() {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.matchMedia('(display-mode: minimal-ui)').matches ||
+                   window.navigator.standalone === true ||
+                   new URLSearchParams(location.search).get('source') === 'pwa';
+        }
+
+        // --- Instructions manuelles (iOS / navigateurs sans prompt natif) ---
+        function buildSteps() {
+            const shareIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3v12" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/><path d="M8 7l4-4 4 4" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/></svg>';
+            const plusIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="4" stroke="#2563eb" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="16" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/><line x1="8" y1="12" x2="16" y2="12" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/></svg>';
+            const menuIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.6" fill="#2563eb"/><circle cx="12" cy="12" r="1.6" fill="#2563eb"/><circle cx="12" cy="19" r="1.6" fill="#2563eb"/></svg>';
+            let steps;
+            if (isIOS) {
+                imIntro.textContent = 'Depuis Safari, en quelques secondes :';
+                steps = [
+                    `Touchez le bouton <b>Partager</b> ${shareIcon} en bas de l'écran`,
+                    `Faites défiler puis touchez <b>« Sur l'écran d'accueil »</b> ${plusIcon}`,
+                    `Confirmez avec <b>« Ajouter »</b> en haut à droite`
+                ];
+            } else {
+                imIntro.textContent = 'Via le menu de votre navigateur :';
+                steps = [
+                    `Ouvrez le menu <b>⋮</b> ${menuIcon} de votre navigateur`,
+                    `Choisissez <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b> ${plusIcon}`,
+                    `Confirmez l'installation`
+                ];
+            }
+            imSteps.innerHTML = steps.map(s => `<li><span class="im-txt">${s}</span></li>`).join('');
+        }
+
+        function openModal() {
+            buildSteps();
+            modal.classList.add('show');
+        }
+        function closeModal() { modal.classList.remove('show'); }
+
+        // --- Affichage / masquage de la bannière ---
+        function showBanner() {
+            if (isInstalled()) return;
+            banner.classList.add('show');
+            fab.classList.remove('show');
+        }
+        function hideBanner() { banner.classList.remove('show'); }
+
+        function showFab() {
+            if (isInstalled()) return;
+            fab.classList.add('show');
+        }
+
+        // Rappel permanent : on garde toujours un moyen d'installer visible.
+        // La bannière réapparaît à chaque visite ; si l'utilisateur la ferme,
+        // le bouton flottant doré reste comme rappel discret et permanent.
+        function scheduleReminders() {
+            if (isInstalled()) return;
+            // 1re apparition après un court délai
+            setTimeout(showBanner, 2500);
+            // Réapparition périodique de la bannière tant que non installée
+            bannerTimer = setInterval(() => {
+                if (isInstalled()) { clearInterval(bannerTimer); hideBanner(); fab.classList.remove('show'); return; }
+                if (!banner.classList.contains('show')) showBanner();
+            }, 90000); // toutes les 90 s
+        }
+
+        // --- Déclenchement de l'installation ---
+        async function triggerInstall() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                hideBanner();
+                if (outcome === 'accepted') {
+                    toast('Installation en cours…');
+                } else {
+                    showFab(); // refus : on garde le rappel discret
+                }
+            } else {
+                // Pas de prompt natif (iOS, ou prompt déjà consommé) → instructions
+                hideBanner();
+                openModal();
+            }
+        }
+
+        // --- Événements natifs PWA ---
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showBanner();
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            hideBanner();
+            fab.classList.remove('show');
+            if (bannerTimer) clearInterval(bannerTimer);
+            toast('Application installée ✔');
+        });
+
+        // --- Interactions ---
+        installBtn.addEventListener('click', triggerInstall);
+        fabBtn.addEventListener('click', triggerInstall);
+        closeBtn.addEventListener('click', () => { hideBanner(); showFab(); });
+        modalClose.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+        // --- Initialisation ---
+        if (!isInstalled()) {
+            scheduleReminders();
+            // iOS ne déclenche jamais beforeinstallprompt : on montre quand même l'invite
+            if (isIOS) setTimeout(showBanner, 2500);
+        }
     })();
 </script>
 </body>
