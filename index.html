@@ -8,6 +8,14 @@
 <!-- ===== PWA ===== -->
 <meta name="description" content="Cagnotte solidaire du quartier HLM 2 pour l'éclairage et la sécurité. Suivez les dons en temps réel et contribuez via Wave ou Orange Money.">
 <meta name="theme-color" content="#0f172a">
+
+<!-- Aperçu de partage (Open Graph / Twitter) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cagnotte pour l'éclairage et la sécurité de HLM 2">
+<meta property="og:description" content="Chaque geste compte. Contribuez via Wave ou Orange Money et suivez les dons en temps réel.">
+<meta property="og:image" content="banner.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="banner.jpg">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -628,6 +636,30 @@
         navigator.clipboard.writeText(buildWaMessage())
             .then(() => toast('Message copié ✔'))
             .catch(() => showError('Impossible de copier le message.'));
+    });
+
+    // ---------- Partage image + texte (rendu identique à l'aperçu) ----------
+    // On précharge la bannière pour pouvoir la joindre au partage natif.
+    let bannerFile = null;
+    fetch('banner.jpg')
+        .then(r => r.ok ? r.blob() : Promise.reject())
+        .then(blob => { bannerFile = new File([blob], 'cagnotte-hlm2.jpg', { type: 'image/jpeg' }); })
+        .catch(() => { bannerFile = null; });
+
+    document.getElementById('waShareBtn').addEventListener('click', (ev) => {
+        const msg = buildWaMessage();
+        // Si le partage natif de fichier est disponible (mobile), on envoie l'image
+        // accompagnée du texte : WhatsApp affiche alors la bannière puis le message.
+        if (bannerFile && navigator.canShare && navigator.canShare({ files: [bannerFile] })) {
+            ev.preventDefault();
+            navigator.share({ files: [bannerFile], text: msg })
+                .catch((e) => {
+                    if (e && e.name === 'AbortError') return; // partage annulé par l'utilisateur
+                    // Repli : ouvrir WhatsApp avec le texte seul
+                    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+                });
+        }
+        // Sinon : le lien wa.me du bouton s'ouvre normalement (texte seul).
     });
 
     // ---------- Rendu de la liste ----------

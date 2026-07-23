@@ -1,9 +1,10 @@
 /* Service Worker — Cagnotte HLM 2 (PWA) */
-const CACHE_VERSION = 'cagnotte-v2';
+const CACHE_VERSION = 'cagnotte-v3';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './banner.jpg',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png',
