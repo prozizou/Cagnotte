@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
-import { Clock, ShieldX, ShieldAlert, LogOut } from "lucide-react";
+import { Clock, ShieldX, ShieldAlert, LogOut, AlertTriangle, RotateCw } from "lucide-react";
 
 const CONTENT: Record<string, { icon: typeof Clock; title: string; desc: string; tone: string }> = {
   pending: {
@@ -25,10 +25,16 @@ const CONTENT: Record<string, { icon: typeof Clock; title: string; desc: string;
     desc: "L'accès à ce compte a été temporairement suspendu par un administrateur. Contactez-le pour plus d'informations.",
     tone: "danger",
   },
+  error: {
+    icon: AlertTriangle,
+    title: "Impossible de charger votre profil",
+    desc: "La base de données a refusé la lecture — ce n'est pas un problème d'autorisation. Le cas le plus fréquent : les règles de sécurité Firestore (firestore.rules) n'ont pas encore été déployées sur le projet Firebase. Déployez-les puis réessayez.",
+    tone: "danger",
+  },
 };
 
 export default function PendingPage() {
-  const { firebaseUser, profile, loading, profileLoading, signOut } = useAuth();
+  const { firebaseUser, profile, loading, profileLoading, profileError, signOut } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -40,7 +46,10 @@ export default function PendingPage() {
     }
   }, [firebaseUser, profile, loading, profileLoading, router]);
 
-  const status = profile?.status || "pending";
+  // Une erreur de lecture (le plus souvent : règles Firestore non
+  // déployées) est distincte d'un vrai statut "pending" — jamais confondue
+  // avec une attente d'autorisation légitime, même pour le Super Admin.
+  const status = profileError ? "error" : profile?.status || "pending";
   const content = CONTENT[status] || CONTENT.pending;
   const Icon = content.icon;
 
@@ -68,9 +77,18 @@ export default function PendingPage() {
             </div>
           )}
 
+          {profileError && (
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+            >
+              <RotateCw size={15} /> Réessayer
+            </button>
+          )}
+
           <button
             onClick={() => signOut().then(() => router.replace("/login"))}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted-soft"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted-soft"
           >
             <LogOut size={15} /> Se déconnecter
           </button>
