@@ -141,3 +141,14 @@ export function subscribeAllCotisationsForOwner(
     (err) => onError?.(err)
   );
 }
+
+/** Vue Super Admin : toutes les cotisations de la plateforme, tous propriétaires confondus. */
+export function subscribeAllCotisationsAdmin(cb: (list: Cotisation[]) => void, onError?: (err: Error) => void) {
+  return onSnapshot(
+    cotisationsCollection(),
+    (snap) => {
+      cb(sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation))));
+    },
+    (err) => onError?.(err)
+  );
+}

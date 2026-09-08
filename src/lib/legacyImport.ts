@@ -1,7 +1,8 @@
-import { addDoc, collection, getDocs, query, where, writeBatch, doc, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, getDoc, getDocs, query, updateDoc, where, writeBatch, doc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { logHistory } from "@/lib/data/history";
 import { formatFCFA } from "@/lib/format";
+import { UserProfile } from "@/lib/types";
 
 /**
  * Import ponctuel des cotisations de l'ancienne page statique (Firebase
@@ -58,14 +59,18 @@ const LEGACY_COTISATIONS: LegacyEntry[] = [
   { name: "Ibou Mbaye", amount: 2500, date: "2026-09-07" },
 ];
 
-export async function isLegacyAlreadyImported(): Promise<boolean> {
+async function findLegacyCagnotte(): Promise<string | null> {
   const q = query(
     collection(db, "cagnottes"),
     where("ownerId", "==", LEGACY_OWNER_UID),
     where("legacyImportKey", "==", LEGACY_IMPORT_KEY)
   );
   const snap = await getDocs(q);
-  return !snap.empty;
+  return snap.empty ? null : snap.docs[0].id;
+}
+
+export async function isLegacyAlreadyImported(): Promise<boolean> {
+  return (await findLegacyCagnotte()) !== null;
 }
 
 /**
@@ -76,13 +81,24 @@ export async function isLegacyAlreadyImported(): Promise<boolean> {
  * indépendamment (propriétaire du compte OU Super Admin).
  */
 export async function importLegacyCagnotte(actor: { uid: string; name: string }): Promise<void> {
-  if (await isLegacyAlreadyImported()) {
+  const targetSnap = await getDoc(doc(db, "users", LEGACY_OWNER_UID));
+  const targetProfile = targetSnap.exists() ? (targetSnap.data() as UserProfile) : null;
+  const ownerName = targetProfile?.displayName || targetProfile?.email || "";
+
+  const existingId = await findLegacyCagnotte();
+  if (existingId) {
+    // Import déjà effectué : on corrige seulement le nom du propriétaire
+    // affiché si besoin (ex. import lancé avant que ce champ soit
+    // renseigné), sans dupliquer les cotisations.
+    if (ownerName) {
+      await updateDoc(doc(db, "cagnottes", existingId), { ownerName });
+    }
     throw new Error("Cette cagnotte a déjà été importée.");
   }
 
   const cagnotteRef = await addDoc(collection(db, "cagnottes"), {
     ownerId: LEGACY_OWNER_UID,
-    ownerName: "",
+    ownerName,
     title: LEGACY_TITLE,
     description: "Cagnotte solidaire du quartier HLM 2 pour l'éclairage et la sécurité (import de l'historique).",
     startDate: "2026-07-21",
