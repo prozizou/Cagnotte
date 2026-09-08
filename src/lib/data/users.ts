@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserProfile, UserStatus } from "@/lib/types";
 import { logHistory } from "./history";
@@ -51,3 +51,54 @@ export const reactivateUser = (target: UserProfile, actor: { uid: string; name: 
 
 export const revokeUser = (target: UserProfile, actor: { uid: string; name: string }) =>
   setUserStatus(target, "rejected", "user_revoked", actor, "Accès retiré");
+
+interface PreApproveInput {
+  uid: string;
+  email: string;
+  displayName: string;
+}
+
+/**
+ * Crée directement un profil approuvé pour un UID donné, sans attendre
+ * que ce compte se connecte une première fois. Utile pour autoriser à
+ * l'avance un compte que l'on sait devoir se connecter prochainement
+ * (ex. import de données historiques). Quand ce compte se connectera
+ * réellement, il trouvera son profil déjà existant et approuvé — le
+ * bootstrap automatique de première connexion ne s'exécute que si aucun
+ * profil n'existe encore.
+ */
+export async function preApproveUser(input: PreApproveInput, actor: { uid: string; name: string }): Promise<void> {
+  const uid = input.uid.trim();
+  const email = input.email.trim().toLowerCase();
+  if (!uid) throw new Error("UID obligatoire.");
+  if (!email) throw new Error("Email obligatoire.");
+
+  const ref = doc(db, "users", uid);
+  const existing = await getDoc(ref);
+  if (existing.exists()) {
+    throw new Error("Un profil existe déjà pour cet UID.");
+  }
+
+  await setDoc(ref, {
+    uid,
+    email,
+    displayName: input.displayName.trim() || email,
+    photoURL: null,
+    status: "approved",
+    role: "user",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    approvedBy: actor.uid,
+    approvedByName: actor.name,
+    approvedAt: serverTimestamp(),
+  });
+
+  await logHistory({
+    type: "user_approved",
+    description: `Accès pré-autorisé (avant première connexion) : ${email}`,
+    ownerId: uid,
+    actorId: actor.uid,
+    actorName: actor.name,
+    metadata: { targetEmail: email },
+  });
+}
