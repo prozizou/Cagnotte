@@ -1,0 +1,169 @@
+rules_version = '2';
+
+// ============================================================================
+// Règles de sécurité Firestore — Cotiz
+//
+// Principes :
+//  - Aucune donnée n'est accessible sans authentification Google.
+//  - Un compte doit être au statut "approved" pour lire/écrire des données
+//    métier (cagnottes, cotisations). Un utilisateur ne peut jamais
+//    s'auto-approuver, changer son propre statut ou son propre rôle.
+//  - Chaque cagnotte et ses cotisations appartiennent à un seul propriétaire
+//    (ownerId) : un utilisateur standard ne voit et ne modifie que ses
+//    propres données. Le Super Administrateur peut tout lire et gérer les
+//    comptes utilisateurs.
+//  - Le journal d'historique ("history") est en écriture seule (append-only) :
+//    aucune modification ni suppression n'est jamais autorisée.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Fonctions utilitaires ----------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userProfile(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isApprovedUser(uid) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && userProfile(uid).status == 'approved';
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userProfile(request.auth.uid).role == 'superadmin'
+        && userProfile(request.auth.uid).status == 'approved';
+    }
+
+    function isSuperAdminEmail() {
+      return isSignedIn() && request.auth.token.email == 'prozizou298@gmail.com';
+    }
+
+    // ---------- users ----------
+    // Un profil est créé par l'utilisateur lui-même à la première connexion,
+    // toujours au statut "pending" (sauf le Super Admin, auto-approuvé).
+    // Seul le Super Admin peut ensuite changer le statut ou le rôle d'un
+    // compte — jamais l'utilisateur concerné, jamais pour lui-même.
+    match /users/{uid} {
+      allow get: if isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow list: if isSuperAdmin();
+
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.keys().hasAll(['uid', 'email', 'displayName', 'status', 'role'])
+        && (
+          (isSuperAdminEmail()
+            && request.resource.data.role == 'superadmin'
+            && request.resource.data.status == 'approved')
+          ||
+          (!isSuperAdminEmail()
+            && request.resource.data.role == 'user'
+            && request.resource.data.status == 'pending')
+        );
+
+      // L'utilisateur peut modifier son propre profil (nom, photo…) mais
+      // jamais son statut, son rôle, son uid ou son email.
+      allow update: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email;
+
+      // Le Super Admin gère les autorisations d'accès des autres comptes.
+      allow update: if isSuperAdmin() && request.auth.uid != uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.status in ['pending', 'approved', 'rejected', 'suspended'];
+
+      allow delete: if false;
+    }
+
+    // ---------- cagnottes ----------
+    match /cagnottes/{cagnotteId} {
+      allow read: if isSignedIn()
+        && (resource.data.ownerId == request.auth.uid || isSuperAdmin())
+        && (isApprovedUser(request.auth.uid) || isSuperAdmin());
+
+      allow create: if isApprovedUser(request.auth.uid)
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.goalAmount is number
+        && request.resource.data.goalAmount >= 0
+        && request.resource.data.status in ['draft', 'active', 'completed', 'archived'];
+
+      allow update: if request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.status in ['draft', 'active', 'completed', 'archived']
+        && (
+          (isApprovedUser(request.auth.uid) && resource.data.ownerId == request.auth.uid)
+          || isSuperAdmin()
+        );
+
+      allow delete: if (isApprovedUser(request.auth.uid) && resource.data.ownerId == request.auth.uid)
+        || isSuperAdmin();
+
+      // ---------- cotisations (sous-collection) ----------
+      match /cotisations/{cotisationId} {
+        function parentCagnotte() {
+          return get(/databases/$(database)/documents/cagnottes/$(cagnotteId)).data;
+        }
+
+        // La lecture (get ET requêtes de type collectionGroup) ne dépend que
+        // du champ dénormalisé "ownerId" présent sur chaque cotisation :
+        // cela permet un filtrage fiable, document par document.
+        allow read: if isSignedIn()
+          && (resource.data.ownerId == request.auth.uid || isSuperAdmin())
+          && (isApprovedUser(request.auth.uid) || isSuperAdmin());
+
+        allow create: if isApprovedUser(request.auth.uid)
+          && parentCagnotte().ownerId == request.auth.uid
+          && parentCagnotte().status != 'archived'
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.cagnotteId == cagnotteId
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0;
+
+        allow update: if isApprovedUser(request.auth.uid)
+          && parentCagnotte().ownerId == request.auth.uid
+          && parentCagnotte().status != 'archived'
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.cagnotteId == resource.data.cagnotteId
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0;
+
+        allow delete: if (isApprovedUser(request.auth.uid)
+            && parentCagnotte().ownerId == request.auth.uid
+            && parentCagnotte().status != 'archived'
+            && resource.data.ownerId == request.auth.uid)
+          || isSuperAdmin();
+      }
+    }
+
+    // ---------- history (journal d'audit, append-only) ----------
+    match /history/{entryId} {
+      allow read: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isSuperAdmin());
+
+      allow create: if isSignedIn()
+        && request.resource.data.actorId == request.auth.uid
+        && (isApprovedUser(request.auth.uid) || isSuperAdmin());
+
+      // Journal immuable : aucune modification ni suppression, même par le
+      // propriétaire ou le Super Admin.
+      allow update, delete: if false;
+    }
+  }
+}

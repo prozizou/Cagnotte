@@ -1,0 +1,208 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import clsx from "clsx";
+import toast from "react-hot-toast";
+import { Check, X, ShieldOff, ShieldCheck, UserMinus, Users as UsersIcon } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { subscribeAllUsers, approveUser, rejectUser, suspendUser, reactivateUser, revokeUser } from "@/lib/data/users";
+import { UserProfile, UserStatus } from "@/lib/types";
+import { UserStatusBadge } from "@/components/ui/StatusBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { USER_STATUS_LABELS } from "@/lib/constants";
+import { formatDateTime } from "@/lib/format";
+
+const FILTERS: Array<{ value: UserStatus | "all"; label: string }> = [
+  { value: "all", label: "Tous" },
+  { value: "pending", label: USER_STATUS_LABELS.pending },
+  { value: "approved", label: USER_STATUS_LABELS.approved },
+  { value: "suspended", label: USER_STATUS_LABELS.suspended },
+  { value: "rejected", label: USER_STATUS_LABELS.rejected },
+];
+
+type PendingAction = { user: UserProfile; kind: "reject" | "suspend" | "revoke" } | null;
+
+export default function UtilisateursPage() {
+  const { firebaseUser, profile, isSuperAdmin } = useAuth();
+  const router = useRouter();
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<UserStatus | "all">("all");
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    return subscribeAllUsers((list) => {
+      setUsers(list);
+      setLoading(false);
+    });
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (profile && !isSuperAdmin) router.replace("/dashboard");
+  }, [profile, isSuperAdmin, router]);
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return users;
+    return users.filter((u) => u.status === filter);
+  }, [users, filter]);
+
+  const actor = firebaseUser && profile ? { uid: firebaseUser.uid, name: profile.displayName } : null;
+
+  async function runAction(fn: (target: UserProfile, actor: { uid: string; name: string }) => Promise<void>, target: UserProfile, successMsg: string) {
+    if (!actor) return;
+    try {
+      await fn(target, actor);
+      toast.success(successMsg);
+    } catch {
+      toast.error("Action impossible.");
+    }
+  }
+
+  if (!isSuperAdmin) return null;
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-xl font-bold text-foreground sm:text-2xl">Gestion des utilisateurs</h1>
+        <p className="text-sm text-muted">Autorisez, refusez ou suspendez l&apos;accès des utilisateurs à la plateforme.</p>
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto scrollbar-thin">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setFilter(f.value)}
+            className={clsx(
+              "flex-shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
+              filter === f.value ? "bg-primary text-white" : "bg-muted-soft text-muted hover:text-foreground"
+            )}
+          >
+            {f.label}
+            {f.value !== "all" && (
+              <span className="ml-1.5 opacity-70">{users.filter((u) => u.status === f.value).length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="skeleton h-80 w-full rounded-2xl" />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={UsersIcon} title="Aucun utilisateur" description="Aucun compte ne correspond à ce filtre." />
+      ) : (
+        <div className="space-y-2.5">
+          {filtered.map((u) => (
+            <div key={u.uid} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                {u.photoURL ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={u.photoURL} alt="" className="h-10 w-10 flex-shrink-0 rounded-full" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
+                    {u.displayName?.[0]?.toUpperCase() || "U"}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-foreground">{u.displayName}</p>
+                    {u.role === "superadmin" && <ShieldCheck size={14} className="flex-shrink-0 text-primary" />}
+                  </div>
+                  <p className="truncate text-xs text-muted">{u.email}</p>
+                  <p className="text-[11px] text-muted">Inscrit le {formatDateTime(u.createdAt)}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <UserStatusBadge status={u.status} />
+                {u.uid !== firebaseUser?.uid && (
+                  <div className="flex gap-1.5">
+                    {u.status === "pending" && (
+                      <>
+                        <ActionButton
+                          icon={Check}
+                          label="Autoriser"
+                          tone="success"
+                          onClick={() => runAction(approveUser, u, "Accès autorisé ✔")}
+                        />
+                        <ActionButton icon={X} label="Refuser" tone="danger" onClick={() => setPendingAction({ user: u, kind: "reject" })} />
+                      </>
+                    )}
+                    {u.status === "approved" && (
+                      <>
+                        <ActionButton icon={ShieldOff} label="Suspendre" tone="warning" onClick={() => setPendingAction({ user: u, kind: "suspend" })} />
+                        <ActionButton icon={UserMinus} label="Retirer" tone="danger" onClick={() => setPendingAction({ user: u, kind: "revoke" })} />
+                      </>
+                    )}
+                    {u.status === "suspended" && (
+                      <>
+                        <ActionButton icon={Check} label="Réactiver" tone="success" onClick={() => runAction(reactivateUser, u, "Compte réactivé ✔")} />
+                        <ActionButton icon={UserMinus} label="Retirer" tone="danger" onClick={() => setPendingAction({ user: u, kind: "revoke" })} />
+                      </>
+                    )}
+                    {u.status === "rejected" && (
+                      <ActionButton icon={Check} label="Autoriser" tone="success" onClick={() => runAction(approveUser, u, "Accès autorisé ✔")} />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={
+          pendingAction?.kind === "reject"
+            ? "Refuser cette demande d'accès ?"
+            : pendingAction?.kind === "suspend"
+            ? "Suspendre ce compte ?"
+            : "Retirer l'accès de ce compte ?"
+        }
+        description={pendingAction ? `${pendingAction.user.displayName} (${pendingAction.user.email})` : ""}
+        confirmLabel={pendingAction?.kind === "reject" ? "Refuser" : pendingAction?.kind === "suspend" ? "Suspendre" : "Retirer l'accès"}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={async () => {
+          if (!pendingAction) return;
+          const { user, kind } = pendingAction;
+          if (kind === "reject") await runAction(rejectUser, user, "Demande refusée");
+          if (kind === "suspend") await runAction(suspendUser, user, "Compte suspendu");
+          if (kind === "revoke") await runAction(revokeUser, user, "Accès retiré");
+          setPendingAction(null);
+        }}
+      />
+    </div>
+  );
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+  tone,
+  onClick,
+}: {
+  icon: typeof Check;
+  label: string;
+  tone: "success" | "danger" | "warning";
+  onClick: () => void;
+}) {
+  const toneStyles = {
+    success: "text-success hover:bg-success-soft",
+    danger: "text-danger hover:bg-danger-soft",
+    warning: "text-warning hover:bg-warning-soft",
+  };
+  return (
+    <button
+      onClick={onClick}
+      className={clsx("flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-semibold", toneStyles[tone])}
+      title={label}
+    >
+      <Icon size={13} /> <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
