@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { BarChart3, ArrowRight, Coins, Wallet, TrendingUp } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCagnottes } from "@/hooks/useCagnottes";
 import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,6 +13,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatFCFA } from "@/lib/format";
 
 export default function RapportsHubPage() {
+  const { isSuperAdmin } = useAuth();
   const { cagnottes, loading: loadingCagnottes } = useCagnottes();
   const { cotisations, loading: loadingCotisations } = useOwnerCotisations();
   const loading = loadingCagnottes || loadingCotisations;
@@ -67,6 +69,9 @@ export default function RapportsHubPage() {
                   <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
                   <CagnotteStatusBadge status={c.status} />
                 </div>
+                {isSuperAdmin && c.ownerName && (
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{c.ownerName}</p>
+                )}
                 <p className="mt-2 text-sm font-bold text-foreground">{formatFCFA(total)}</p>
                 {c.goalAmount > 0 && (
                   <div className="mt-2">

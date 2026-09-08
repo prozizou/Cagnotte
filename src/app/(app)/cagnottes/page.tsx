@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Wallet } from "lucide-react";
+import { Plus, Search, Wallet, ShieldCheck } from "lucide-react";
 import clsx from "clsx";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCagnottes } from "@/hooks/useCagnottes";
 import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -22,6 +23,7 @@ const FILTERS: Array<{ value: CagnotteStatus | "all"; label: string }> = [
 ];
 
 export default function CagnottesListPage() {
+  const { isSuperAdmin } = useAuth();
   const { cagnottes, loading } = useCagnottes();
   const { cotisations } = useOwnerCotisations();
   const [search, setSearch] = useState("");
@@ -47,8 +49,14 @@ export default function CagnottesListPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground sm:text-2xl">Mes cagnottes</h1>
-          <p className="text-sm text-muted">{cagnottes.length} cagnotte{cagnottes.length > 1 ? "s" : ""} au total</p>
+          <h1 className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
+            {isSuperAdmin ? "Toutes les cagnottes" : "Mes cagnottes"}
+            {isSuperAdmin && <ShieldCheck size={17} className="text-primary" />}
+          </h1>
+          <p className="text-sm text-muted">
+            {cagnottes.length} cagnotte{cagnottes.length > 1 ? "s" : ""} au total
+            {isSuperAdmin && " · toute la plateforme"}
+          </p>
         </div>
         <Link
           href="/cagnottes/new"
@@ -122,6 +130,9 @@ export default function CagnottesListPage() {
                   <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
                   <CagnotteStatusBadge status={c.status} />
                 </div>
+                {isSuperAdmin && c.ownerName && (
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{c.ownerName}</p>
+                )}
                 <p className="mt-1 line-clamp-1 text-xs text-muted">{c.description || "—"}</p>
                 <p className="mt-3 text-sm font-bold text-foreground">
                   {formatFCFA(total)}

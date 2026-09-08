@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { CagnotteStatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatFCFA, formatDateTime } from "@/lib/format";
-import { subscribeHistoryForOwner } from "@/lib/data/history";
+import { subscribeHistoryForOwner, subscribeAllHistory } from "@/lib/data/history";
 import { HistoryEntry } from "@/lib/types";
 import { HistoryIcon } from "@/components/history/HistoryIcon";
 import {
@@ -34,8 +34,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!firebaseUser) return;
-    return subscribeHistoryForOwner(firebaseUser.uid, setHistory, 8);
-  }, [firebaseUser]);
+    return isSuperAdmin
+      ? subscribeAllHistory(setHistory, 8)
+      : subscribeHistoryForOwner(firebaseUser.uid, setHistory, 8);
+  }, [firebaseUser, isSuperAdmin]);
 
   const stats = useMemo(() => {
     const active = cagnottes.filter((c) => c.status === "active").length;
@@ -66,7 +68,9 @@ export default function DashboardPage() {
           <h1 className="text-xl font-bold text-foreground sm:text-2xl">
             Bonjour {profile?.displayName?.split(" ")[0] || ""} 👋
           </h1>
-          <p className="text-sm text-muted">Voici un aperçu de vos cagnottes.</p>
+          <p className="text-sm text-muted">
+            {isSuperAdmin ? "Vue d'ensemble de toute la plateforme." : "Voici un aperçu de vos cagnottes."}
+          </p>
         </div>
         <Link
           href="/cagnottes/new"
@@ -150,7 +154,9 @@ export default function DashboardPage() {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Mes cagnottes récentes</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            {isSuperAdmin ? "Cagnottes récentes" : "Mes cagnottes récentes"}
+          </h2>
           <Link href="/cagnottes" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
             Tout voir <ArrowRight size={13} />
           </Link>
@@ -188,6 +194,9 @@ export default function DashboardPage() {
                     <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
                     <CagnotteStatusBadge status={c.status} />
                   </div>
+                  {isSuperAdmin && c.ownerName && (
+                    <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{c.ownerName}</p>
+                  )}
                   <p className="mt-2 text-xs text-muted">{formatFCFA(total)} collecté{c.goalAmount ? ` sur ${formatFCFA(c.goalAmount)}` : ""}</p>
                   {c.goalAmount > 0 && (
                     <div className="mt-2.5">

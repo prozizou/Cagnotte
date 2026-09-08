@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Receipt, ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCagnottes } from "@/hooks/useCagnottes";
 import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,6 +13,7 @@ import { PAGE_SIZE_COTISATIONS } from "@/lib/constants";
 import { Coins, Users } from "lucide-react";
 
 export default function CotisationsGlobalPage() {
+  const { isSuperAdmin } = useAuth();
   const { cagnottes, loading: loadingCagnottes } = useCagnottes();
   const { cotisations, loading: loadingCotisations } = useOwnerCotisations();
   const [search, setSearch] = useState("");
@@ -20,6 +22,7 @@ export default function CotisationsGlobalPage() {
 
   const loading = loadingCagnottes || loadingCotisations;
   const titleById = useMemo(() => new Map(cagnottes.map((c) => [c.id, c.title])), [cagnottes]);
+  const ownerById = useMemo(() => new Map(cagnottes.map((c) => [c.id, c.ownerName])), [cagnottes]);
 
   const filtered = useMemo(() => {
     return cotisations
@@ -97,6 +100,7 @@ export default function CotisationsGlobalPage() {
                   <th className="px-4 py-3">Montant</th>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Cagnotte</th>
+                  {isSuperAdmin && <th className="px-4 py-3">Propriétaire</th>}
                 </tr>
               </thead>
               <tbody>
@@ -110,6 +114,7 @@ export default function CotisationsGlobalPage() {
                         {titleById.get(c.cagnotteId) || "—"}
                       </Link>
                     </td>
+                    {isSuperAdmin && <td className="px-4 py-3 text-muted">{ownerById.get(c.cagnotteId) || "—"}</td>}
                   </tr>
                 ))}
               </tbody>

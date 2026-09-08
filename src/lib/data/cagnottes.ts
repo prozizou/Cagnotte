@@ -150,6 +150,23 @@ export function subscribeUserCagnottes(
   );
 }
 
+/**
+ * Vue Super Admin : toutes les cagnottes de la plateforme, tous
+ * propriétaires confondus. Aucune clause where() : les règles Firestore
+ * filtrent déjà chaque document (isSuperAdmin() autorise la lecture de
+ * n'importe quel ownerId), donc un utilisateur non-admin qui appellerait
+ * cette fonction par erreur ne recevrait que ses propres documents.
+ */
+export function subscribeAllCagnottes(cb: (cagnottes: Cagnotte[]) => void, onError?: (err: Error) => void) {
+  return onSnapshot(
+    collection(db, "cagnottes"),
+    (snap) => {
+      cb(sortByCreatedAtDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cagnotte))));
+    },
+    (err) => onError?.(err)
+  );
+}
+
 export function subscribeCagnotte(cagnotteId: string, cb: (cagnotte: Cagnotte | null) => void) {
   return onSnapshot(doc(db, "cagnottes", cagnotteId), (snap) => {
     cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as Cagnotte) : null);
