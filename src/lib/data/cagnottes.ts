@@ -4,7 +4,6 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -127,18 +126,28 @@ export async function deleteCagnotte(cagnotte: Cagnotte, actor: { uid: string; n
   });
 }
 
-export function subscribeUserCagnottes(uid: string, cb: (cagnottes: Cagnotte[]) => void) {
-  const q = query(collection(db, "cagnottes"), where("ownerId", "==", uid), orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cagnotte)));
-  });
+// Tri effectué côté client (et non via orderBy() dans la requête) : une
+// requête combinant where(ownerId==…) et orderBy(createdAt) exige un index
+// composite à créer manuellement dans la console Firebase, ce qui n'est pas
+// toujours fait. Une simple égalité est indexée automatiquement par
+// Firestore, sans configuration supplémentaire.
+function sortByCreatedAtDesc(list: Cagnotte[]): Cagnotte[] {
+  return [...list].sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
 }
 
-export function subscribeAllCagnottes(cb: (cagnottes: Cagnotte[]) => void) {
-  const q = query(collection(db, "cagnottes"), orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cagnotte)));
-  });
+export function subscribeUserCagnottes(
+  uid: string,
+  cb: (cagnottes: Cagnotte[]) => void,
+  onError?: (err: Error) => void
+) {
+  const q = query(collection(db, "cagnottes"), where("ownerId", "==", uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(sortByCreatedAtDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cagnotte))));
+    },
+    (err) => onError?.(err)
+  );
 }
 
 export function subscribeCagnotte(cagnotteId: string, cb: (cagnotte: Cagnotte | null) => void) {
