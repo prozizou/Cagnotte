@@ -4,13 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import toast from "react-hot-toast";
-import { Check, X, ShieldOff, ShieldCheck, UserMinus, Users as UsersIcon } from "lucide-react";
+import { Check, X, ShieldOff, ShieldCheck, UserMinus, Users as UsersIcon, UserPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { subscribeAllUsers, approveUser, rejectUser, suspendUser, reactivateUser, revokeUser } from "@/lib/data/users";
+import {
+  subscribeAllUsers,
+  approveUser,
+  rejectUser,
+  suspendUser,
+  reactivateUser,
+  revokeUser,
+  preApproveUser,
+} from "@/lib/data/users";
 import { UserProfile, UserStatus } from "@/lib/types";
 import { UserStatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Field, inputClass } from "@/components/ui/Field";
 import { USER_STATUS_LABELS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
 
@@ -31,6 +40,7 @@ export default function UtilisateursPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<UserStatus | "all">("all");
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [preApproveOpen, setPreApproveOpen] = useState(false);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -67,9 +77,17 @@ export default function UtilisateursPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-foreground sm:text-2xl">Gestion des utilisateurs</h1>
-        <p className="text-sm text-muted">Autorisez, refusez ou suspendez l&apos;accès des utilisateurs à la plateforme.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">Gestion des utilisateurs</h1>
+          <p className="text-sm text-muted">Autorisez, refusez ou suspendez l&apos;accès des utilisateurs à la plateforme.</p>
+        </div>
+        <button
+          onClick={() => setPreApproveOpen(true)}
+          className="flex items-center justify-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm font-medium text-foreground hover:bg-muted-soft"
+        >
+          <UserPlus size={15} /> Pré-approuver un compte
+        </button>
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto scrollbar-thin">
@@ -176,6 +194,104 @@ export default function UtilisateursPage() {
           setPendingAction(null);
         }}
       />
+
+      <PreApproveModal
+        open={preApproveOpen}
+        actor={actor}
+        onClose={() => setPreApproveOpen(false)}
+      />
+    </div>
+  );
+}
+
+function PreApproveModal({
+  open,
+  actor,
+  onClose,
+}: {
+  open: boolean;
+  actor: { uid: string; name: string } | null;
+  onClose: () => void;
+}) {
+  const [uid, setUid] = useState("");
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!open) return null;
+
+  function reset() {
+    setUid("");
+    setEmail("");
+    setDisplayName("");
+    setError("");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!actor) return;
+    if (!uid.trim() || !email.trim()) {
+      setError("UID et email sont obligatoires.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await preApproveUser({ uid: uid.trim(), email: email.trim(), displayName: displayName.trim() }, actor);
+      toast.success("Compte pré-approuvé ✔ — accès immédiat dès sa connexion");
+      reset();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de la pré-approbation.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-900/50 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={handleSubmit}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl"
+      >
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-foreground">Pré-approuver un compte</h3>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-muted-soft" aria-label="Fermer">
+            <X size={18} />
+          </button>
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Autorise l&apos;accès d&apos;un compte Google avant même sa première connexion : dès qu&apos;il se
+          connectera avec cet UID, il accédera directement à l&apos;application (statut déjà « approuvé »).
+        </p>
+
+        <div className="space-y-3.5">
+          <Field label="UID Firebase" required hint="Identifiant unique du compte (Console Firebase → Authentication).">
+            <input className={inputClass} value={uid} onChange={(e) => setUid(e.target.value)} placeholder="ex. cWIRYeUbN7gxLXaBHeCTO17LLUw1" autoFocus />
+          </Field>
+          <Field label="Email" required>
+            <input type="email" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nom@exemple.com" />
+          </Field>
+          <Field label="Nom affiché" hint="Facultatif — l'email sera utilisé par défaut.">
+            <input className={inputClass} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          </Field>
+        </div>
+
+        {error && <p className="mt-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-sm text-danger">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="mt-5 flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+        >
+          {submitting ? "Enregistrement…" : "Pré-approuver"}
+        </button>
+      </form>
     </div>
   );
 }
