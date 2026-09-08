@@ -48,7 +48,13 @@ export default function CagnotteDetailPage() {
   const [confirmDeleteCagnotte, setConfirmDeleteCagnotte] = useState(false);
 
   useEffect(() => subscribeCagnotte(id, setCagnotte), [id]);
-  useEffect(() => subscribeCotisations(id, setCotisations), [id]);
+  useEffect(
+    () =>
+      subscribeCotisations(id, setCotisations, (err) =>
+        toast.error("Impossible de charger les cotisations : " + err.message)
+      ),
+    [id]
+  );
 
   const stats = useMemo(() => computeCagnotteStats(cotisations, cagnotte?.goalAmount || 0), [cotisations, cagnotte]);
 

@@ -1,11 +1,9 @@
 import {
   addDoc,
   collection,
-  collectionGroup,
   deleteDoc,
   doc,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -23,8 +21,15 @@ export interface CotisationFormInput {
   comment: string;
 }
 
-function cotisationsRef(cagnotteId: string) {
-  return collection(db, "cagnottes", cagnotteId, "cotisations");
+// Collection de premier niveau (et non une sous-collection de "cagnottes") :
+// chaque cotisation porte ses propres cagnotteId/ownerId dénormalisés. Ce
+// choix évite les requêtes de type collectionGroup, qui exigent un index
+// composite dédié à créer manuellement (impossible à déployer par simple
+// copier-coller des règles depuis la console Firebase) — ici, une seule
+// égalité (where cagnotteId==… ou ownerId==…) suffit et est indexée
+// automatiquement par Firestore, sans configuration supplémentaire.
+function cotisationsCollection() {
+  return collection(db, "cotisations");
 }
 
 export async function addCotisation(
@@ -32,7 +37,7 @@ export async function addCotisation(
   input: CotisationFormInput,
   actor: { uid: string; name: string }
 ): Promise<void> {
-  await addDoc(cotisationsRef(cagnotte.id), {
+  await addDoc(cotisationsCollection(), {
     cagnotteId: cagnotte.id,
     ownerId: cagnotte.ownerId,
     name: input.name,
@@ -63,7 +68,7 @@ export async function updateCotisation(
   input: CotisationFormInput,
   actor: { uid: string; name: string }
 ): Promise<void> {
-  await updateDoc(doc(db, "cagnottes", cagnotte.id, "cotisations", cotisationId), {
+  await updateDoc(doc(db, "cotisations", cotisationId), {
     name: input.name,
     amount: input.amount,
     date: input.date,
@@ -88,7 +93,7 @@ export async function deleteCotisation(
   cotisation: Cotisation,
   actor: { uid: string; name: string }
 ): Promise<void> {
-  await deleteDoc(doc(db, "cagnottes", cagnotte.id, "cotisations", cotisation.id));
+  await deleteDoc(doc(db, "cotisations", cotisation.id));
 
   await logHistory({
     type: "cotisation_deleted",
@@ -102,24 +107,37 @@ export async function deleteCotisation(
   });
 }
 
-export function subscribeCotisations(cagnotteId: string, cb: (list: Cotisation[]) => void) {
-  const q = query(cotisationsRef(cagnotteId), orderBy("date", "desc"));
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation)));
-  });
+function sortByDateDesc(list: Cotisation[]): Cotisation[] {
+  return [...list].sort((a, b) => b.date.localeCompare(a.date));
 }
 
-/** Agrégation multi-cagnottes pour le tableau de bord (collectionGroup). */
-export function subscribeAllCotisationsForOwner(uid: string, cb: (list: Cotisation[]) => void) {
-  const q = query(collectionGroup(db, "cotisations"), where("ownerId", "==", uid));
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation)));
-  });
+export function subscribeCotisations(
+  cagnotteId: string,
+  cb: (list: Cotisation[]) => void,
+  onError?: (err: Error) => void
+) {
+  const q = query(cotisationsCollection(), where("cagnotteId", "==", cagnotteId));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation))));
+    },
+    (err) => onError?.(err)
+  );
 }
 
-export function subscribeAllCotisations(cb: (list: Cotisation[]) => void) {
-  const q = query(collectionGroup(db, "cotisations"));
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation)));
-  });
+/** Agrégation multi-cagnottes pour le tableau de bord. */
+export function subscribeAllCotisationsForOwner(
+  uid: string,
+  cb: (list: Cotisation[]) => void,
+  onError?: (err: Error) => void
+) {
+  const q = query(cotisationsCollection(), where("ownerId", "==", uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation))));
+    },
+    (err) => onError?.(err)
+  );
 }
