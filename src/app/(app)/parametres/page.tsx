@@ -65,7 +65,9 @@ export default function ParametresPage() {
         </dl>
       </div>
 
-      {firebaseUser?.uid === LEGACY_OWNER_UID && <LegacyImportCard actor={{ uid: firebaseUser.uid, name: profile.displayName }} />}
+      {firebaseUser && (firebaseUser.uid === LEGACY_OWNER_UID || isSuperAdmin) && (
+        <LegacyImportCard actor={{ uid: firebaseUser.uid, name: profile.displayName }} />
+      )}
 
       <button
         onClick={handleSignOut}

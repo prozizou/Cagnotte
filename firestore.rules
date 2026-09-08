@@ -102,8 +102,13 @@ service cloud.firestore {
         && (resource.data.ownerId == request.auth.uid || isSuperAdmin())
         && (isApprovedUser(request.auth.uid) || isSuperAdmin());
 
-      allow create: if isApprovedUser(request.auth.uid)
-        && request.resource.data.ownerId == request.auth.uid
+      // Un utilisateur crée ses propres cagnottes ; le Super Admin peut en
+      // créer pour n'importe quel ownerId (ex. import de données pour un
+      // compte qui ne s'est pas encore connecté).
+      allow create: if (
+          (isApprovedUser(request.auth.uid) && request.resource.data.ownerId == request.auth.uid)
+          || isSuperAdmin()
+        )
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.goalAmount is number
@@ -143,14 +148,21 @@ service cloud.firestore {
         && (resource.data.ownerId == request.auth.uid || isSuperAdmin())
         && (isApprovedUser(request.auth.uid) || isSuperAdmin());
 
-      allow create: if isApprovedUser(request.auth.uid)
-        && parentCagnotte(request.resource.data.cagnotteId).ownerId == request.auth.uid
-        && parentCagnotte(request.resource.data.cagnotteId).status != 'archived'
-        && request.resource.data.ownerId == request.auth.uid
+      // ownerId doit toujours correspondre au véritable propriétaire de la
+      // cagnotte parente (intégrité des données), quel que soit l'auteur
+      // de l'écriture. L'auteur doit être ce propriétaire lui-même, ou le
+      // Super Admin (ex. import de données pour un compte qui ne s'est pas
+      // encore connecté).
+      allow create: if parentCagnotte(request.resource.data.cagnotteId).status != 'archived'
+        && request.resource.data.ownerId == parentCagnotte(request.resource.data.cagnotteId).ownerId
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.amount is number
-        && request.resource.data.amount > 0;
+        && request.resource.data.amount > 0
+        && (
+          (isApprovedUser(request.auth.uid) && parentCagnotte(request.resource.data.cagnotteId).ownerId == request.auth.uid)
+          || isSuperAdmin()
+        );
 
       allow update: if isApprovedUser(request.auth.uid)
         && resource.data.ownerId == request.auth.uid
