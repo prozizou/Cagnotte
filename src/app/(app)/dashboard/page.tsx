@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import { Wallet, CheckCircle2, Coins, Users, Plus, ArrowRight } from "lucide-react";
+import { Wallet, CheckCircle2, Coins, Users, Plus, ArrowRight, UserCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCagnottes } from "@/hooks/useCagnottes";
 import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
+import { usePendingUsersCount } from "@/hooks/usePendingUsersCount";
 import { KPICard, KPICardSkeleton } from "@/components/ui/KPICard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CagnotteStatusBadge } from "@/components/ui/StatusBadge";
@@ -25,9 +26,10 @@ import {
 } from "recharts";
 
 export default function DashboardPage() {
-  const { profile, firebaseUser } = useAuth();
+  const { profile, firebaseUser, isSuperAdmin } = useAuth();
   const { cagnottes, loading: loadingCagnottes } = useCagnottes();
   const { cotisations, loading: loadingCotisations } = useOwnerCotisations();
+  const pendingUsersCount = usePendingUsersCount();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
@@ -73,6 +75,21 @@ export default function DashboardPage() {
           <Plus size={16} /> Nouvelle cagnotte
         </Link>
       </div>
+
+      {isSuperAdmin && pendingUsersCount > 0 && (
+        <Link
+          href="/utilisateurs"
+          className="flex items-center gap-3 rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3.5 text-sm shadow-sm transition hover:border-warning/50"
+        >
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white text-warning">
+            <UserCheck size={17} />
+          </span>
+          <span className="flex-1 font-medium text-foreground">
+            {pendingUsersCount} demande{pendingUsersCount > 1 ? "s" : ""} d&apos;accès en attente d&apos;autorisation
+          </span>
+          <span className="flex-shrink-0 text-xs font-semibold text-warning">Gérer →</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {loading ? (

@@ -1,22 +1,37 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, Plus, ShieldCheck } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePendingUsersCount } from "@/hooks/usePendingUsersCount";
 import { Logo } from "@/components/ui/Logo";
-import { NAV_ITEMS } from "./nav";
+import { NAV_ITEMS, NavItem } from "./nav";
 import toast from "react-hot-toast";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isSuperAdmin, signOut } = useAuth();
+  const pendingCount = usePendingUsersCount();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const items = NAV_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin);
+
+  // La barre de navigation basse (mobile) ne peut afficher que 5 entrées :
+  // on choisit une sélection fixe plutôt qu'une simple troncature, pour
+  // garantir que « Utilisateurs » reste toujours visible pour le Super
+  // Admin (sinon, avec 7 entrées au total, il serait coupé et invisible
+  // sans passer par le menu ☰).
+  const bottomItems = useMemo(() => {
+    const byHref = new Map(items.map((i) => [i.href, i]));
+    const hrefs = isSuperAdmin
+      ? ["/dashboard", "/cagnottes", "/cotisations", "/utilisateurs", "/parametres"]
+      : ["/dashboard", "/cagnottes", "/cotisations", "/rapports", "/parametres"];
+    return hrefs.map((h) => byHref.get(h)).filter((i): i is NavItem => !!i);
+  }, [items, isSuperAdmin]);
 
   async function handleSignOut() {
     await signOut();
@@ -34,6 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
           {items.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            const badge = item.href === "/utilisateurs" ? pendingCount : 0;
             return (
               <Link
                 key={item.href}
@@ -44,7 +60,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <item.icon size={18} strokeWidth={2.1} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {badge > 0 && <NavBadge count={badge} />}
               </Link>
             );
           })}
@@ -78,6 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
               {items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                const badge = item.href === "/utilisateurs" ? pendingCount : 0;
                 return (
                   <Link
                     key={item.href}
@@ -89,7 +107,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                     )}
                   >
                     <item.icon size={18} strokeWidth={2.1} />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {badge > 0 && <NavBadge count={badge} />}
                   </Link>
                 );
               })}
@@ -106,10 +125,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-line bg-surface/95 px-4 backdrop-blur lg:hidden">
           <button
             onClick={() => setMobileOpen(true)}
-            className="rounded-lg p-2 text-foreground hover:bg-muted-soft"
+            className="relative rounded-lg p-2 text-foreground hover:bg-muted-soft"
             aria-label="Ouvrir le menu"
           >
             <Menu size={22} />
+            {pendingCount > 0 && (
+              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-danger" aria-hidden="true" />
+            )}
           </button>
           <Logo size={28} />
           <Link
@@ -127,18 +149,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Navigation basse — mobile */}
         <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface/95 backdrop-blur lg:hidden">
-          {items.slice(0, 5).map((item) => {
+          {bottomItems.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            const badge = item.href === "/utilisateurs" ? pendingCount : 0;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={clsx(
-                  "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium",
+                  "relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium",
                   active ? "text-primary" : "text-muted"
                 )}
               >
-                <item.icon size={19} strokeWidth={2.1} />
+                <span className="relative">
+                  <item.icon size={19} strokeWidth={2.1} />
+                  {badge > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-danger text-[8px] font-bold text-white">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </span>
                 <span className="leading-none">{item.label.split(" ")[0]}</span>
               </Link>
             );
@@ -146,6 +176,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </div>
     </div>
+  );
+}
+
+function NavBadge({ count }: { count: number }) {
+  return (
+    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold text-white">
+      {count > 99 ? "99+" : count}
+    </span>
   );
 }
 
