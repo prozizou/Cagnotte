@@ -16,13 +16,25 @@ l'application ne traite aucun paiement en ligne.
 - **Firebase** : Authentication (Google), Firestore, Security Rules
 - **Recharts** pour les graphiques, **jsPDF** / **ExcelJS** pour les exports
 
-## 1. Créer le projet Firebase
+## 1. Préparer le projet Firebase
 
-1. Sur la [Console Firebase](https://console.firebase.google.com/), créez un projet.
-2. **Authentication** → Sign-in method → activez **Google**.
-3. **Firestore Database** → créez une base (mode production).
-4. **Paramètres du projet** → Vos applications → ajoutez une application Web
-   et copiez la configuration.
+L'application utilise **Firestore**, pas la Realtime Database. Si vous avez
+déjà un projet Firebase (par exemple avec une RTDB existante), **réutilisez
+ce même projet** — Firestore et RTDB peuvent cohabiter sans problème dans un
+seul et même projet Firebase ; inutile d'en créer un nouveau.
+
+1. Sur la [Console Firebase](https://console.firebase.google.com/), ouvrez
+   votre projet existant (ou créez-en un si vous partez de zéro).
+2. **Authentication** → Sign-in method → activez **Google** (si ce n'est pas
+   déjà fait).
+3. **Firestore Database** → **Créer une base de données** (mode production,
+   région de votre choix). Cela n'affecte pas votre RTDB existante : les
+   deux bases sont indépendantes et peuvent tourner en parallèle. Vous
+   pouvez conserver ou supprimer votre RTDB par la suite, comme vous
+   voulez — cette application ne l'utilise plus.
+4. **Paramètres du projet** → Vos applications → si une application Web
+   existe déjà (c'était le cas pour l'ancienne page), réutilisez sa
+   configuration ; sinon ajoutez-en une et copiez la configuration.
 
 ## 2. Configurer les variables d'environnement
 
@@ -32,6 +44,10 @@ cp .env.local.example .env.local
 
 Renseignez les valeurs issues de la configuration Firebase (`apiKey`,
 `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`).
+Si vous réutilisez votre projet existant, ce sont les mêmes valeurs que
+celles qui figuraient dans l'ancienne page (`apiKey`, `authDomain`,
+`projectId`, etc.) — seul le champ `databaseURL` (spécifique à la RTDB)
+ne sert plus et peut être ignoré.
 
 ## 3. Super Administrateur
 
@@ -76,6 +92,16 @@ npm run start
 
 Déployable sur Vercel, Firebase App Hosting, ou tout hébergeur compatible
 Next.js (Node.js).
+
+## Migration des données existantes (RTDB → Firestore)
+
+Les anciennes cotisations de la RTDB (nœud `cagnotte_db`) ne sont pas
+reprises automatiquement : elles vivaient dans un modèle « une seule
+cagnotte, sans propriétaire » incompatible avec l'isolation multi-
+utilisateur de la nouvelle application. Si vous voulez les récupérer dans
+une nouvelle cagnotte Firestore rattachée à votre compte, dites-le et un
+script de migration ponctuel pourra être écrit (lecture de la RTDB,
+création d'une cagnotte + de ses cotisations sous votre `ownerId`).
 
 ## Modèle de données (Firestore)
 
