@@ -60,6 +60,7 @@ export type HistoryEventType =
   | "cagnotte_closed"
   | "cagnotte_reopened"
   | "cagnotte_archived"
+  | "cagnotte_deleted"
   | "cotisation_added"
   | "cotisation_updated"
   | "cotisation_deleted"
@@ -67,7 +68,8 @@ export type HistoryEventType =
   | "user_rejected"
   | "user_suspended"
   | "user_reactivated"
-  | "user_revoked";
+  | "user_revoked"
+  | "user_deleted";
 
 export interface HistoryEntry {
   id: string;

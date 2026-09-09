@@ -3,15 +3,18 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   query,
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Cagnotte, CagnotteStatus, Contact } from "@/lib/types";
 import { logHistory } from "./history";
+import { formatFCFA } from "@/lib/format";
 import { CAGNOTTE_STATUS_LABELS } from "@/lib/constants";
 
 export interface CagnotteFormInput {
@@ -112,17 +115,39 @@ export async function setCagnotteStatus(
   });
 }
 
-/** Suppression définitive : réservée aux cagnottes en brouillon (aucune cotisation attendue). */
+/**
+ * Suppression définitive d'une cagnotte, avec toutes ses cotisations
+ * (suppression en cascade). Réservée en pratique aux brouillons pour un
+ * propriétaire ordinaire (l'UI ne propose le bouton que dans ce cas) ou,
+ * pour le Super Admin, à n'importe quelle cagnotte quel que soit son
+ * statut — les règles Firestore appliquent cette même restriction
+ * indépendamment de l'UI.
+ */
 export async function deleteCagnotte(cagnotte: Cagnotte, actor: { uid: string; name: string }): Promise<void> {
+  const cotisationsSnap = await getDocs(query(collection(db, "cotisations"), where("cagnotteId", "==", cagnotte.id)));
+
+  let total = 0;
+  const batch = writeBatch(db);
+  cotisationsSnap.forEach((d) => {
+    total += (d.data().amount as number) || 0;
+    batch.delete(d.ref);
+  });
+  // Les cotisations sont supprimées avant la cagnotte elle-même : les
+  // règles Firestore vérifient l'existence de la cagnotte parente pour
+  // valider ces suppressions.
+  await batch.commit();
+
   await deleteDoc(doc(db, "cagnottes", cagnotte.id));
+
   await logHistory({
-    type: "cagnotte_updated",
-    description: `Cagnotte « ${cagnotte.title} » (brouillon) supprimée`,
+    type: "cagnotte_deleted",
+    description: `Cagnotte « ${cagnotte.title} » supprimée définitivement (${cotisationsSnap.size} cotisation${cotisationsSnap.size > 1 ? "s" : ""}, ${formatFCFA(total)})`,
     ownerId: cagnotte.ownerId,
     cagnotteId: cagnotte.id,
     cagnotteTitle: cagnotte.title,
     actorId: actor.uid,
     actorName: actor.name,
+    metadata: { entriesDeleted: cotisationsSnap.size, total },
   });
 }
 

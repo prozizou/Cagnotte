@@ -39,7 +39,7 @@ import { CAGNOTTE_STATUS_LABELS } from "@/lib/constants";
 export default function CagnotteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { firebaseUser, profile } = useAuth();
+  const { firebaseUser, profile, isSuperAdmin } = useAuth();
   const [cagnotte, setCagnotte] = useState<Cagnotte | null | undefined>(undefined);
   const [cotisations, setCotisations] = useState<Cotisation[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -226,7 +226,7 @@ export default function CagnotteDetailPage() {
             {cagnotte.status === "archived" && (
               <StatusButton icon={RotateCcw} label="Désarchiver" onClick={() => handleStatusChange("active")} />
             )}
-            {cagnotte.status === "draft" && (
+            {(cagnotte.status === "draft" || isSuperAdmin) && (
               <StatusButton icon={Trash2} label="Supprimer" tone="danger" onClick={() => setConfirmDeleteCagnotte(true)} />
             )}
           </div>
@@ -286,8 +286,8 @@ export default function CagnotteDetailPage() {
 
       <ConfirmDialog
         open={confirmDeleteCagnotte}
-        title="Supprimer cette cagnotte brouillon ?"
-        description="Cette action est irréversible."
+        title="Supprimer définitivement cette cagnotte ?"
+        description={`« ${cagnotte.title} » et ses ${stats.entriesCount} cotisation(s) (${formatFCFA(stats.totalCollected)}) seront supprimées. Action irréversible.`}
         confirmLabel="Supprimer"
         onConfirm={handleDeleteCagnotte}
         onCancel={() => setConfirmDeleteCagnotte(false)}

@@ -93,7 +93,9 @@ service cloud.firestore {
         && request.resource.data.email == resource.data.email
         && request.resource.data.status in ['pending', 'approved', 'rejected', 'suspended'];
 
-      allow delete: if false;
+      // Suppression définitive réservée au Super Admin, jamais pour son
+      // propre compte (évite tout risque d'auto-verrouillage).
+      allow delete: if isSuperAdmin() && request.auth.uid != uid;
     }
 
     // ---------- cagnottes ----------
