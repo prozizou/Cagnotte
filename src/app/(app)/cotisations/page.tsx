@@ -2,15 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Receipt, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Receipt, ChevronLeft, ChevronRight, Target, PiggyBank, Users, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCagnottes } from "@/hooks/useCagnottes";
 import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { KPICard, KPICardSkeleton } from "@/components/ui/KPICard";
-import { formatFCFA, formatDate } from "@/lib/format";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { computeCagnotteStats } from "@/lib/stats";
+import { formatFCFA, formatPct, formatDate } from "@/lib/format";
 import { PAGE_SIZE_COTISATIONS } from "@/lib/constants";
-import { Coins, Users } from "lucide-react";
 
 export default function CotisationsGlobalPage() {
   const { isSuperAdmin } = useAuth();
@@ -23,20 +24,35 @@ export default function CotisationsGlobalPage() {
   const loading = loadingCagnottes || loadingCotisations;
   const titleById = useMemo(() => new Map(cagnottes.map((c) => [c.id, c.title])), [cagnottes]);
   const ownerById = useMemo(() => new Map(cagnottes.map((c) => [c.id, c.ownerName])), [cagnottes]);
+  const selectedCagnotte = useMemo(
+    () => (cagnotteFilter === "all" ? null : cagnottes.find((c) => c.id === cagnotteFilter) || null),
+    [cagnottes, cagnotteFilter]
+  );
+
+  // Le bloc objectif/KPI reflète la cagnotte sélectionnée dans le filtre —
+  // et non la recherche par nom, qui ne sert qu'à repérer une ligne.
+  const scopedCotisations = useMemo(
+    () => cotisations.filter((c) => (cagnotteFilter === "all" ? true : c.cagnotteId === cagnotteFilter)),
+    [cotisations, cagnotteFilter]
+  );
+  const scopedGoalAmount = useMemo(() => {
+    if (selectedCagnotte) return selectedCagnotte.goalAmount || 0;
+    return cagnottes.reduce((sum, c) => sum + (c.goalAmount || 0), 0);
+  }, [selectedCagnotte, cagnottes]);
+  const stats = useMemo(
+    () => computeCagnotteStats(scopedCotisations, scopedGoalAmount),
+    [scopedCotisations, scopedGoalAmount]
+  );
 
   const filtered = useMemo(() => {
-    return cotisations
-      .filter((c) => (cagnotteFilter === "all" ? true : c.cagnotteId === cagnotteFilter))
+    return scopedCotisations
       .filter((c) => (search.trim() ? c.name.toLowerCase().includes(search.trim().toLowerCase()) : true))
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [cotisations, cagnotteFilter, search]);
+  }, [scopedCotisations, search]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE_COTISATIONS));
   const currentPage = Math.min(page, pageCount);
   const paged = filtered.slice((currentPage - 1) * PAGE_SIZE_COTISATIONS, currentPage * PAGE_SIZE_COTISATIONS);
-
-  const total = cotisations.reduce((s, c) => s + c.amount, 0);
-  const uniqueNames = new Set(cotisations.map((c) => c.name.trim().toLowerCase()).filter(Boolean));
 
   return (
     <div className="space-y-5">
@@ -45,13 +61,59 @@ export default function CotisationsGlobalPage() {
         <p className="text-sm text-muted">Toutes les cotisations enregistrées, toutes cagnottes confondues.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {/* Objectif & progression — dynamique selon la cagnotte sélectionnée */}
+      {loading ? (
+        <div className="skeleton h-28 w-full rounded-2xl" />
+      ) : (
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+          {scopedGoalAmount > 0 ? (
+            <>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(stats.totalCollected)}</span>
+                  <span className="ml-1.5 text-sm text-muted">collecté sur {formatFCFA(stats.goalAmount)}</span>
+                </div>
+                <span className={`text-sm font-bold ${stats.isGoalReached ? "text-success" : "text-primary"}`}>
+                  {formatPct(stats.progressPct)}
+                </span>
+              </div>
+              <div className="mt-3">
+                <ProgressBar pct={stats.progressPct} goalReached={stats.isGoalReached} />
+              </div>
+              <p className="mt-2.5 text-sm">
+                {stats.isGoalReached ? (
+                  <span className="font-semibold text-success">
+                    🎉 Objectif atteint — 100 %{stats.surplus > 0 && ` · Excédent : +${formatFCFA(stats.surplus)}`}
+                  </span>
+                ) : (
+                  <span className="text-muted">
+                    Reste <span className="font-semibold text-foreground">{formatFCFA(stats.remaining)}</span> (
+                    {formatPct(100 - stats.progressPct)} restants)
+                  </span>
+                )}
+              </p>
+            </>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(stats.totalCollected)}</span>
+                <span className="ml-1.5 text-sm text-muted">collecté</span>
+              </div>
+              <span className="text-xs text-muted">Aucun objectif défini</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {loading ? (
-          Array.from({ length: 2 }).map((_, i) => <KPICardSkeleton key={i} />)
+          Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
         ) : (
           <>
-            <KPICard icon={Coins} label="Total collecté" value={formatFCFA(total)} tone="success" />
-            <KPICard icon={Users} label="Cotisants" value={String(uniqueNames.size)} />
+            <KPICard icon={Target} label="Objectif" value={scopedGoalAmount > 0 ? formatFCFA(scopedGoalAmount) : "—"} />
+            <KPICard icon={PiggyBank} label="Reste à collecter" value={scopedGoalAmount > 0 ? formatFCFA(stats.remaining) : "—"} />
+            <KPICard icon={Users} label="Cotisants" value={String(stats.contributorsCount)} hint={`${stats.entriesCount} entrée(s)`} />
+            <KPICard icon={TrendingUp} label="Cotisation moyenne" value={formatFCFA(stats.averageAmount)} />
           </>
         )}
       </div>
@@ -92,7 +154,37 @@ export default function CotisationsGlobalPage() {
         <EmptyState icon={Receipt} title="Aucune cotisation" description="Ajoutez des cotisations depuis une cagnotte." />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-2xl border border-line">
+          {/* Cartes de transaction — mobile : le montant reste l'information dominante,
+              la date, la cagnotte et le propriétaire passent en secondaire. */}
+          <div className="space-y-2 sm:hidden">
+            {paged.map((c) => (
+              <div key={c.id} className="rounded-xl border border-line bg-surface p-3.5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{c.name}</p>
+                    <Link
+                      href={`/cagnottes/${c.cagnotteId}`}
+                      className="mt-0.5 block truncate text-xs text-primary hover:underline"
+                    >
+                      {titleById.get(c.cagnotteId) || "—"}
+                    </Link>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-base font-bold tabular-nums text-success">{formatFCFA(c.amount)}</p>
+                    <p className="mt-0.5 text-[11px] text-muted">{formatDate(c.date)}</p>
+                  </div>
+                </div>
+                {isSuperAdmin && (
+                  <p className="mt-2 border-t border-line pt-2 text-[11px] text-muted">
+                    Propriétaire : <span className="font-medium text-foreground">{ownerById.get(c.cagnotteId) || "—"}</span>
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Tableau — tablette / ordinateur */}
+          <div className="hidden overflow-x-auto rounded-2xl border border-line sm:block">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-line bg-muted-soft text-left text-xs font-semibold uppercase tracking-wide text-muted">

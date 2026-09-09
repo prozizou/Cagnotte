@@ -3,10 +3,11 @@
 import { ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, LogOut, Plus, ShieldCheck } from "lucide-react";
+import { Menu, X, LogOut, Plus, ShieldCheck, Receipt, Wallet, UserPlus } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePendingUsersCount } from "@/hooks/usePendingUsersCount";
+import { useCagnottes } from "@/hooks/useCagnottes";
 import { Logo } from "@/components/ui/Logo";
 import { NAV_ITEMS, NavItem } from "./nav";
 import toast from "react-hot-toast";
@@ -135,13 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </button>
           <Logo size={28} />
-          <Link
-            href="/cagnottes/new"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white"
-            aria-label="Nouvelle cagnotte"
-          >
-            <Plus size={18} />
-          </Link>
+          <QuickAddButton />
         </header>
 
         <main className="flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-6 lg:px-8 lg:pb-6">
@@ -177,6 +172,96 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </div>
     </div>
+  );
+}
+
+// Le bouton "+" de l'en-tête mobile est ambigu tant qu'il n'ouvre qu'une
+// seule action : ce menu explicite ce qu'il ajoute (cotisation, cagnotte,
+// utilisateur), pour éviter toute erreur de clic.
+function QuickAddButton() {
+  const router = useRouter();
+  const { isSuperAdmin } = useAuth();
+  const { cagnottes } = useCagnottes();
+  const [open, setOpen] = useState(false);
+  const [pickingCagnotte, setPickingCagnotte] = useState(false);
+
+  function close() {
+    setOpen(false);
+    setPickingCagnotte(false);
+  }
+
+  function goTo(href: string) {
+    close();
+    router.push(href);
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white"
+        aria-label="Ajouter"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Plus size={18} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-[90]" onClick={close} />
+          <div className="absolute right-0 top-11 z-[95] w-60 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-lg">
+            {!pickingCagnotte ? (
+              <>
+                <QuickAddItem icon={Receipt} label="Nouvelle cotisation" onClick={() => setPickingCagnotte(true)} />
+                <QuickAddItem icon={Wallet} label="Nouvelle cagnotte" onClick={() => goTo("/cagnottes/new")} />
+                {isSuperAdmin && (
+                  <QuickAddItem icon={UserPlus} label="Ajouter / inviter un utilisateur" onClick={() => goTo("/utilisateurs?preapprove=1")} />
+                )}
+              </>
+            ) : (
+              <div className="max-h-64 overflow-y-auto">
+                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Choisir une cagnotte</p>
+                {cagnottes.length === 0 ? (
+                  <p className="px-3 py-2.5 text-xs text-muted">
+                    Aucune cagnotte pour l&apos;instant.{" "}
+                    <button onClick={() => goTo("/cagnottes/new")} className="font-medium text-primary hover:underline">
+                      En créer une
+                    </button>
+                  </p>
+                ) : (
+                  cagnottes.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => goTo(`/cagnottes/${c.id}?add=1`)}
+                      className="block w-full truncate px-3 py-2 text-left text-sm text-foreground hover:bg-muted-soft"
+                    >
+                      {c.title}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function QuickAddItem({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof Receipt;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button onClick={onClick} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-muted-soft">
+      <Icon size={16} className="flex-shrink-0 text-muted" />
+      {label}
+    </button>
   );
 }
 

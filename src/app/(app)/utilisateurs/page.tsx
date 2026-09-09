@@ -57,6 +57,17 @@ export default function UtilisateursPage() {
     if (profile && !isSuperAdmin) router.replace("/dashboard");
   }, [profile, isSuperAdmin, router]);
 
+  // Ouvre directement la pré-approbation quand on arrive depuis le menu "+"
+  // global (Ajouter / inviter un utilisateur → ?preapprove=1).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("preapprove") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPreApproveOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
   const filtered = useMemo(() => {
     if (filter === "all") return users;
     return users.filter((u) => u.status === filter);
@@ -136,10 +147,10 @@ export default function UtilisateursPage() {
                 </div>
               </Link>
 
-              <div className="flex flex-shrink-0 items-center gap-2">
+              <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
                 <UserStatusBadge status={u.status} />
                 {u.uid !== firebaseUser?.uid && (
-                  <div className="flex gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {u.status === "pending" && (
                       <>
                         <ActionButton
@@ -178,12 +189,14 @@ export default function UtilisateursPage() {
         open={!!pendingAction}
         title={
           pendingAction?.kind === "reject"
-            ? "Refuser cette demande d'accès ?"
+            ? `Refuser l'accès de ${pendingAction.user.displayName} ?`
             : pendingAction?.kind === "suspend"
-            ? "Suspendre ce compte ?"
-            : "Retirer l'accès de ce compte ?"
+            ? `Suspendre ${pendingAction.user.displayName} ?`
+            : pendingAction
+            ? `Retirer l'accès de ${pendingAction.user.displayName} ?`
+            : ""
         }
-        description={pendingAction ? `${pendingAction.user.displayName} (${pendingAction.user.email})` : ""}
+        description={pendingAction ? pendingAction.user.email : ""}
         confirmLabel={pendingAction?.kind === "reject" ? "Refuser" : pendingAction?.kind === "suspend" ? "Suspendre" : "Retirer l'accès"}
         onCancel={() => setPendingAction(null)}
         onConfirm={async () => {
@@ -316,10 +329,9 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      className={clsx("flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-semibold", toneStyles[tone])}
-      title={label}
+      className={clsx("flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-semibold", toneStyles[tone])}
     >
-      <Icon size={13} /> <span className="hidden sm:inline">{label}</span>
+      <Icon size={13} /> {label}
     </button>
   );
 }
