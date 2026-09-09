@@ -15,16 +15,19 @@ import {
   Wallet,
   Coins,
   Users,
+  History as HistoryIconLucide,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { subscribeUserProfile, approveUser, rejectUser, suspendUser, reactivateUser, revokeUser, deleteUserProfile } from "@/lib/data/users";
 import { subscribeUserCagnottes, deleteCagnotte } from "@/lib/data/cagnottes";
-import { UserProfile, Cagnotte } from "@/lib/types";
+import { subscribeHistoryForOwner } from "@/lib/data/history";
+import { UserProfile, Cagnotte, HistoryEntry } from "@/lib/types";
 import { UserStatusBadge, CagnotteStatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { KPICard } from "@/components/ui/KPICard";
+import { HistoryIcon } from "@/components/history/HistoryIcon";
 import { formatFCFA, formatDateTime } from "@/lib/format";
 import { useOwnerCotisationsFor } from "@/hooks/useOwnerCotisationsFor";
 
@@ -35,6 +38,7 @@ export default function UserDetailPage() {
   const [target, setTarget] = useState<UserProfile | null | undefined>(undefined);
   const [cagnottes, setCagnottes] = useState<Cagnotte[]>([]);
   const [loadingCagnottes, setLoadingCagnottes] = useState(true);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [pendingAction, setPendingAction] = useState<"reject" | "suspend" | "revoke" | "delete" | null>(null);
   const [cagnotteToDelete, setCagnotteToDelete] = useState<Cagnotte | null>(null);
 
@@ -56,6 +60,8 @@ export default function UserDetailPage() {
       () => setLoadingCagnottes(false)
     );
   }, [uid]);
+
+  useEffect(() => subscribeHistoryForOwner(uid, setHistory, 20), [uid]);
 
   const { cotisations } = useOwnerCotisationsFor(uid);
 
@@ -239,16 +245,54 @@ export default function UserDetailPage() {
         )}
       </div>
 
+      {/* Historique — activité de ce compte et actions administratives le concernant */}
+      <div>
+        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <HistoryIconLucide size={15} /> Historique
+        </h2>
+        {history.length === 0 ? (
+          <EmptyState icon={HistoryIconLucide} title="Aucune activité" description="Rien à signaler pour ce compte pour le moment." />
+        ) : (
+          <div className="rounded-2xl border border-line bg-surface shadow-sm">
+            <ul className="divide-y divide-line">
+              {history.map((h) => (
+                <li key={h.id} className="flex items-start gap-3 p-4">
+                  <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+                    <HistoryIcon type={h.type} size={14} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{h.description}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+                      <span>{formatDateTime(h.createdAt)}</span>
+                      <span>·</span>
+                      <span>par {h.actorName}</span>
+                      {h.cagnotteId && (
+                        <>
+                          <span>·</span>
+                          <Link href={`/cagnottes/${h.cagnotteId}`} className="text-primary hover:underline">
+                            {h.cagnotteTitle}
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
       <ConfirmDialog
         open={pendingAction !== null && pendingAction !== "delete"}
         title={
           pendingAction === "reject"
-            ? "Refuser cette demande d'accès ?"
+            ? `Refuser l'accès de ${target?.displayName} ?`
             : pendingAction === "suspend"
-            ? "Suspendre ce compte ?"
-            : "Retirer l'accès de ce compte ?"
+            ? `Suspendre ${target?.displayName} ?`
+            : `Retirer l'accès de ${target?.displayName} ?`
         }
-        description={target ? `${target.displayName} (${target.email})` : ""}
+        description={target ? target.email : ""}
         confirmLabel={pendingAction === "reject" ? "Refuser" : pendingAction === "suspend" ? "Suspendre" : "Retirer l'accès"}
         onCancel={() => setPendingAction(null)}
         onConfirm={async () => {
@@ -261,11 +305,11 @@ export default function UserDetailPage() {
 
       <ConfirmDialog
         open={pendingAction === "delete"}
-        title="Supprimer définitivement ce compte ?"
+        title={`Supprimer définitivement le compte de ${target?.displayName} ?`}
         description={
           <>
-            {target?.displayName} ({target?.email}). Le compte redémarrera de zéro (statut « en attente ») s&apos;il
-            se reconnecte un jour. Ses cagnottes ne sont pas supprimées automatiquement.
+            {target?.email}. Le compte redémarrera de zéro (statut « en attente ») s&apos;il se reconnecte un jour.
+            Ses cagnottes ne sont pas supprimées automatiquement.
           </>
         }
         confirmLabel="Supprimer le compte"

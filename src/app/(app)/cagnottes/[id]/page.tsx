@@ -56,6 +56,17 @@ export default function CagnotteDetailPage() {
     [id]
   );
 
+  // Ouvre directement le formulaire d'ajout quand on arrive depuis le menu
+  // "+" global (Nouvelle cotisation → choix de la cagnotte → ?add=1).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("add") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setModalOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
   const stats = useMemo(() => computeCagnotteStats(cotisations, cagnotte?.goalAmount || 0), [cotisations, cagnotte]);
 
   if (cagnotte === undefined) {
