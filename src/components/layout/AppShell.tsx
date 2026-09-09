@@ -18,18 +18,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pendingCount = usePendingUsersCount();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const items = NAV_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin);
+  const items = NAV_ITEMS.filter(
+    (item) => (!item.superAdminOnly || isSuperAdmin) && !(isSuperAdmin && item.hiddenForSuperAdmin)
+  );
 
   // La barre de navigation basse (mobile) ne peut afficher que 5 entrées :
-  // on choisit une sélection fixe plutôt qu'une simple troncature, pour
-  // garantir que « Utilisateurs » reste toujours visible pour le Super
-  // Admin (sinon, avec 7 entrées au total, il serait coupé et invisible
-  // sans passer par le menu ☰).
+  // pour un utilisateur standard (6 entrées au total), on choisit une
+  // sélection fixe plutôt qu'une simple troncature. Pour le Super Admin,
+  // il ne reste que 2 entrées (Cotisations, Utilisateurs) : elles tiennent
+  // déjà toutes, pas besoin de curation.
   const bottomItems = useMemo(() => {
+    if (isSuperAdmin) return items;
     const byHref = new Map(items.map((i) => [i.href, i]));
-    const hrefs = isSuperAdmin
-      ? ["/dashboard", "/cagnottes", "/cotisations", "/utilisateurs", "/parametres"]
-      : ["/dashboard", "/cagnottes", "/cotisations", "/rapports", "/parametres"];
+    const hrefs = ["/dashboard", "/cagnottes", "/cotisations", "/rapports", "/parametres"];
     return hrefs.map((h) => byHref.get(h)).filter((i): i is NavItem => !!i);
   }, [items, isSuperAdmin]);
 

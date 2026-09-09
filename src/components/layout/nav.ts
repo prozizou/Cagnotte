@@ -14,14 +14,18 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   superAdminOnly?: boolean;
+  // Masqué pour le Super Admin : son parcours passe désormais par
+  // Utilisateurs → fiche d'un compte → ses cagnottes, plutôt que par ces
+  // pages orientées "espace personnel" d'un utilisateur standard.
+  hiddenForSuperAdmin?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/cagnottes", label: "Mes cagnottes", icon: Wallet },
+  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, hiddenForSuperAdmin: true },
+  { href: "/cagnottes", label: "Mes cagnottes", icon: Wallet, hiddenForSuperAdmin: true },
   { href: "/cotisations", label: "Cotisations", icon: Receipt },
-  { href: "/rapports", label: "Rapports & Bilan", icon: BarChart3 },
-  { href: "/historique", label: "Historique", icon: History },
+  { href: "/rapports", label: "Rapports & Bilan", icon: BarChart3, hiddenForSuperAdmin: true },
+  { href: "/historique", label: "Historique", icon: History, hiddenForSuperAdmin: true },
   { href: "/utilisateurs", label: "Utilisateurs", icon: Users, superAdminOnly: true },
-  { href: "/parametres", label: "Paramètres", icon: Settings },
+  { href: "/parametres", label: "Paramètres", icon: Settings, hiddenForSuperAdmin: true },
 ];

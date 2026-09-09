@@ -42,7 +42,7 @@ export default function PendingPage() {
     if (!firebaseUser) {
       router.replace("/login");
     } else if (profile?.status === "approved") {
-      router.replace("/dashboard");
+      router.replace(profile.role === "superadmin" ? "/utilisateurs" : "/dashboard");
     }
   }, [firebaseUser, profile, loading, profileLoading, router]);
 
