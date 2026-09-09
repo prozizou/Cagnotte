@@ -1,4 +1,15 @@
-import { collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserProfile, UserStatus } from "@/lib/types";
 import { logHistory } from "./history";
@@ -7,6 +18,12 @@ export function subscribeAllUsers(cb: (users: UserProfile[]) => void) {
   const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => d.data() as UserProfile));
+  });
+}
+
+export function subscribeUserProfile(uid: string, cb: (profile: UserProfile | null) => void) {
+  return onSnapshot(doc(db, "users", uid), (snap) => {
+    cb(snap.exists() ? (snap.data() as UserProfile) : null);
   });
 }
 
@@ -51,6 +68,30 @@ export const reactivateUser = (target: UserProfile, actor: { uid: string; name: 
 
 export const revokeUser = (target: UserProfile, actor: { uid: string; name: string }) =>
   setUserStatus(target, "rejected", "user_revoked", actor, "Accès retiré");
+
+/**
+ * Suppression définitive du profil (et non simple retrait d'accès) :
+ * l'utilisateur redémarre de zéro (statut "pending") s'il se reconnecte
+ * un jour. Ne supprime pas ses éventuelles cagnottes/cotisations, qui
+ * restent visibles côté Super Admin — à supprimer séparément si besoin.
+ * Ne supprime jamais le compte du Super Admin appelant lui-même (règle
+ * Firestore appliquée indépendamment de l'UI).
+ */
+export async function deleteUserProfile(target: UserProfile, actor: { uid: string; name: string }): Promise<void> {
+  if (target.uid === actor.uid) {
+    throw new Error("Impossible de supprimer son propre compte.");
+  }
+  await deleteDoc(doc(db, "users", target.uid));
+
+  await logHistory({
+    type: "user_deleted",
+    description: `Compte supprimé définitivement : ${target.displayName || target.email}`,
+    ownerId: target.uid,
+    actorId: actor.uid,
+    actorName: actor.name,
+    metadata: { targetEmail: target.email },
+  });
+}
 
 interface PreApproveInput {
   uid: string;

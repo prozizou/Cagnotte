@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import clsx from "clsx";
 import toast from "react-hot-toast";
 import { Check, X, ShieldOff, ShieldCheck, UserMinus, Users as UsersIcon, UserPlus } from "lucide-react";
@@ -116,7 +117,7 @@ export default function UtilisateursPage() {
         <div className="space-y-2.5">
           {filtered.map((u) => (
             <div key={u.uid} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 items-center gap-3">
+              <Link href={`/utilisateurs/${u.uid}`} className="flex min-w-0 items-center gap-3 hover:opacity-80">
                 {u.photoURL ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={u.photoURL} alt="" className="h-10 w-10 flex-shrink-0 rounded-full" referrerPolicy="no-referrer" />
@@ -133,7 +134,7 @@ export default function UtilisateursPage() {
                   <p className="truncate text-xs text-muted">{u.email}</p>
                   <p className="text-[11px] text-muted">Inscrit le {formatDateTime(u.createdAt)}</p>
                 </div>
-              </div>
+              </Link>
 
               <div className="flex flex-shrink-0 items-center gap-2">
                 <UserStatusBadge status={u.status} />

@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import { Wallet, CheckCircle2, Coins, Users, Plus, ArrowRight, UserCheck } from "lucide-react";
+import { Wallet, CheckCircle2, Coins, Users, Plus, ArrowRight, UserCheck, ShieldCheck, Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCagnottes } from "@/hooks/useCagnottes";
 import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
 import { usePendingUsersCount } from "@/hooks/usePendingUsersCount";
 import { KPICard, KPICardSkeleton } from "@/components/ui/KPICard";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { CagnotteStatusBadge } from "@/components/ui/StatusBadge";
+import { CagnotteStatusBadge, UserStatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatFCFA, formatDateTime } from "@/lib/format";
 import { subscribeHistoryForOwner, subscribeAllHistory } from "@/lib/data/history";
-import { HistoryEntry } from "@/lib/types";
+import { subscribeAllUsers } from "@/lib/data/users";
+import { HistoryEntry, UserProfile } from "@/lib/types";
 import { HistoryIcon } from "@/components/history/HistoryIcon";
 import {
   BarChart,
@@ -31,6 +32,8 @@ export default function DashboardPage() {
   const { cotisations, loading: loadingCotisations } = useOwnerCotisations();
   const pendingUsersCount = usePendingUsersCount();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
   useEffect(() => {
     if (!firebaseUser) return;
@@ -38,6 +41,16 @@ export default function DashboardPage() {
       ? subscribeAllHistory(setHistory, 8)
       : subscribeHistoryForOwner(firebaseUser.uid, setHistory, 8);
   }, [firebaseUser, isSuperAdmin]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoadingUsers(true);
+    return subscribeAllUsers((list) => {
+      setUsers(list);
+      setLoadingUsers(false);
+    });
+  }, [isSuperAdmin]);
 
   const stats = useMemo(() => {
     const active = cagnottes.filter((c) => c.status === "active").length;
@@ -60,6 +73,12 @@ export default function DashboardPage() {
   }, [cagnottes, cotisations]);
 
   const loading = loadingCagnottes || loadingCotisations;
+
+  const cagnotteCountByOwner = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of cagnottes) map.set(c.ownerId, (map.get(c.ownerId) || 0) + 1);
+    return map;
+  }, [cagnottes]);
 
   return (
     <div className="space-y-6">
@@ -152,63 +171,105 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">
-            {isSuperAdmin ? "Cagnottes récentes" : "Mes cagnottes récentes"}
-          </h2>
-          <Link href="/cagnottes" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-            Tout voir <ArrowRight size={13} />
-          </Link>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="skeleton h-32 rounded-2xl" />
-            ))}
+      {isSuperAdmin ? (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Utilisateurs</h2>
+            <Link href="/utilisateurs" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+              Tout voir <ArrowRight size={13} />
+            </Link>
           </div>
-        ) : cagnottes.length === 0 ? (
-          <EmptyState
-            icon={Wallet}
-            title="Aucune cagnotte pour le moment"
-            description="Créez votre première cagnotte pour commencer à enregistrer des cotisations."
-            action={
-              <Link href="/cagnottes/new" className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark">
-                <Plus size={16} /> Nouvelle cagnotte
-              </Link>
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {cagnottes.slice(0, 6).map((c) => {
-              const total = cotisations.filter((x) => x.cagnotteId === c.id).reduce((s, x) => s + x.amount, 0);
-              const pct = c.goalAmount > 0 ? Math.min(100, (total / c.goalAmount) * 100) : 0;
-              return (
+
+          {loadingUsers ? (
+            <div className="skeleton h-64 w-full rounded-2xl" />
+          ) : users.length === 0 ? (
+            <EmptyState icon={UsersIcon} title="Aucun utilisateur" description="Personne ne s'est encore connecté à l'application." />
+          ) : (
+            <div className="space-y-2">
+              {users.slice(0, 8).map((u) => (
                 <Link
-                  key={c.id}
-                  href={`/cagnottes/${c.id}`}
-                  className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                  key={u.uid}
+                  href={`/utilisateurs/${u.uid}`}
+                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3.5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
-                    <CagnotteStatusBadge status={c.status} />
-                  </div>
-                  {isSuperAdmin && c.ownerName && (
-                    <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{c.ownerName}</p>
-                  )}
-                  <p className="mt-2 text-xs text-muted">{formatFCFA(total)} collecté{c.goalAmount ? ` sur ${formatFCFA(c.goalAmount)}` : ""}</p>
-                  {c.goalAmount > 0 && (
-                    <div className="mt-2.5">
-                      <ProgressBar pct={pct} size="sm" />
+                  {u.photoURL ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={u.photoURL} alt="" className="h-9 w-9 flex-shrink-0 rounded-full" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
+                      {u.displayName?.[0]?.toUpperCase() || "U"}
                     </div>
                   )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-semibold text-foreground">{u.displayName}</p>
+                      {u.role === "superadmin" && <ShieldCheck size={13} className="flex-shrink-0 text-primary" />}
+                    </div>
+                    <p className="truncate text-xs text-muted">{u.email}</p>
+                  </div>
+                  <span className="flex-shrink-0 text-xs text-muted">
+                    {cagnotteCountByOwner.get(u.uid) || 0} cagnotte{(cagnotteCountByOwner.get(u.uid) || 0) > 1 ? "s" : ""}
+                  </span>
+                  <UserStatusBadge status={u.status} />
                 </Link>
-              );
-            })}
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Mes cagnottes récentes</h2>
+            <Link href="/cagnottes" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+              Tout voir <ArrowRight size={13} />
+            </Link>
           </div>
-        )}
-      </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="skeleton h-32 rounded-2xl" />
+              ))}
+            </div>
+          ) : cagnottes.length === 0 ? (
+            <EmptyState
+              icon={Wallet}
+              title="Aucune cagnotte pour le moment"
+              description="Créez votre première cagnotte pour commencer à enregistrer des cotisations."
+              action={
+                <Link href="/cagnottes/new" className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark">
+                  <Plus size={16} /> Nouvelle cagnotte
+                </Link>
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {cagnottes.slice(0, 6).map((c) => {
+                const total = cotisations.filter((x) => x.cagnotteId === c.id).reduce((s, x) => s + x.amount, 0);
+                const pct = c.goalAmount > 0 ? Math.min(100, (total / c.goalAmount) * 100) : 0;
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/cagnottes/${c.id}`}
+                    className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
+                      <CagnotteStatusBadge status={c.status} />
+                    </div>
+                    <p className="mt-2 text-xs text-muted">{formatFCFA(total)} collecté{c.goalAmount ? ` sur ${formatFCFA(c.goalAmount)}` : ""}</p>
+                    {c.goalAmount > 0 && (
+                      <div className="mt-2.5">
+                        <ProgressBar pct={pct} size="sm" />
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

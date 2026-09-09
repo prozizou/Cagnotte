@@ -11,6 +11,7 @@ import {
   UserMinus,
   UserPlus,
   ShieldOff,
+  UserRoundX,
 } from "lucide-react";
 import { HistoryEventType } from "@/lib/types";
 
@@ -20,6 +21,7 @@ const ICONS: Record<HistoryEventType, typeof PlusCircle> = {
   cagnotte_closed: CheckCircle2,
   cagnotte_reopened: RotateCcw,
   cagnotte_archived: Archive,
+  cagnotte_deleted: Trash2,
   cotisation_added: PlusCircle,
   cotisation_updated: PenLine,
   cotisation_deleted: Trash2,
@@ -28,6 +30,7 @@ const ICONS: Record<HistoryEventType, typeof PlusCircle> = {
   user_suspended: ShieldOff,
   user_reactivated: UserPlus,
   user_revoked: UserMinus,
+  user_deleted: UserRoundX,
 };
 
 export function HistoryIcon({ type, size = 14 }: { type: HistoryEventType; size?: number }) {
