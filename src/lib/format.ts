@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase/firestore";
+import { Millis } from "./types";
 
 export function formatFCFA(amount: number): string {
   const rounded = Math.round(amount || 0);
@@ -24,9 +24,9 @@ export function formatDate(iso: string | null | undefined): string {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export function formatDateTime(ts: Timestamp | null | undefined): string {
+export function formatDateTime(ts: Millis | null | undefined): string {
   if (!ts) return "—";
-  const d = ts.toDate();
+  const d = new Date(ts);
   return d.toLocaleString("fr-FR", {
     day: "2-digit",
     month: "short",

@@ -2,7 +2,7 @@ import { Cotisation, CagnotteStats } from "./types";
 
 /**
  * Calcule tous les indicateurs d'une cagnotte à partir de la liste
- * (fiable, provenant directement de Firestore) de ses cotisations.
+ * (fiable, provenant directement de Realtime Database) de ses cotisations.
  * Aucune valeur n'est stockée séparément : le total affiché correspond
  * toujours exactement à la somme des cotisations enregistrées.
  */
@@ -38,7 +38,7 @@ export function computeCagnotteStats(cotisations: Cotisation[], goalAmount: numb
 }
 
 function compareCreatedAt(a: Cotisation, b: Cotisation): number {
-  const aMs = a.createdAt?.toMillis?.() ?? new Date(a.date).getTime();
-  const bMs = b.createdAt?.toMillis?.() ?? new Date(b.date).getTime();
+  const aMs = a.createdAt ?? new Date(a.date).getTime();
+  const bMs = b.createdAt ?? new Date(b.date).getTime();
   return aMs - bMs;
 }

@@ -7,9 +7,10 @@ import { Logo } from "@/components/ui/Logo";
 
 /**
  * Protège les pages applicatives : n'affiche le contenu que pour un
- * utilisateur authentifié ET dont le profil Firestore est au statut
- * "approved". C'est une commodité d'UX — la véritable barrière de sécurité
- * est appliquée par les règles Firestore (jamais uniquement côté front).
+ * utilisateur authentifié ET dont le profil Realtime Database est au
+ * statut "approved". C'est une commodité d'UX — la véritable barrière de
+ * sécurité est appliquée par les règles Realtime Database (jamais
+ * uniquement côté front).
  */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { firebaseUser, profile, loading, profileLoading } = useAuth();

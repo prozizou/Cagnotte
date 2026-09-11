@@ -1,4 +1,7 @@
-import { Timestamp } from "firebase/firestore";
+// Realtime Database ne connaît pas le type Timestamp de Firestore : les
+// horodatages sont stockés comme des nombres (millisecondes depuis epoch),
+// posés côté serveur via ServerValue.TIMESTAMP au moment de l'écriture.
+export type Millis = number;
 
 export type UserStatus = "pending" | "approved" | "rejected" | "suspended";
 export type UserRole = "superadmin" | "user";
@@ -10,11 +13,11 @@ export interface UserProfile {
   photoURL: string | null;
   status: UserStatus;
   role: UserRole;
-  createdAt: Timestamp | null;
-  updatedAt: Timestamp | null;
+  createdAt: Millis | null;
+  updatedAt: Millis | null;
   approvedBy?: string | null;
   approvedByName?: string | null;
-  approvedAt?: Timestamp | null;
+  approvedAt?: Millis | null;
 }
 
 export type CagnotteStatus = "draft" | "active" | "completed" | "archived";
@@ -36,8 +39,8 @@ export interface Cagnotte {
   goalAmount: number;
   contacts: Contact[];
   status: CagnotteStatus;
-  createdAt: Timestamp | null;
-  updatedAt: Timestamp | null;
+  createdAt: Millis | null;
+  updatedAt: Millis | null;
 }
 
 export interface Cotisation {
@@ -50,8 +53,8 @@ export interface Cotisation {
   comment: string;
   createdBy: string;
   createdByName: string;
-  createdAt: Timestamp | null;
-  updatedAt: Timestamp | null;
+  createdAt: Millis | null;
+  updatedAt: Millis | null;
 }
 
 export type HistoryEventType =
@@ -80,7 +83,7 @@ export interface HistoryEntry {
   cagnotteTitle?: string | null;
   actorId: string;
   actorName: string;
-  createdAt: Timestamp | null;
+  createdAt: Millis | null;
   metadata?: Record<string, string | number | null>;
 }
 

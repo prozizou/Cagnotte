@@ -1,17 +1,8 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from "firebase/firestore";
+import { equalTo, onValue, orderByChild, push, query, ref, remove, serverTimestamp, set, update } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { Cagnotte, Cotisation } from "@/lib/types";
 import { logHistory } from "./history";
+import { snapshotToList } from "./rtdbUtils";
 import { formatFCFA } from "@/lib/format";
 
 export interface CotisationFormInput {
@@ -21,15 +12,13 @@ export interface CotisationFormInput {
   comment: string;
 }
 
-// Collection de premier niveau (et non une sous-collection de "cagnottes") :
-// chaque cotisation porte ses propres cagnotteId/ownerId dénormalisés. Ce
-// choix évite les requêtes de type collectionGroup, qui exigent un index
-// composite dédié à créer manuellement (impossible à déployer par simple
-// copier-coller des règles depuis la console Firebase) — ici, une seule
-// égalité (where cagnotteId==… ou ownerId==…) suffit et est indexée
-// automatiquement par Firestore, sans configuration supplémentaire.
-function cotisationsCollection() {
-  return collection(db, "cotisations");
+// Nœud de premier niveau (et non un enfant de "cagnottes") : chaque
+// cotisation porte ses propres cagnotteId/ownerId dénormalisés. Ce choix
+// évite les requêtes imbriquées coûteuses — ici, un simple orderByChild
+// (cagnotteId ou ownerId) suffit, indexé via ".indexOn" dans
+// database.rules.json.
+function cotisationsRef() {
+  return ref(db, "cotisations");
 }
 
 export async function addCotisation(
@@ -37,7 +26,8 @@ export async function addCotisation(
   input: CotisationFormInput,
   actor: { uid: string; name: string }
 ): Promise<void> {
-  await addDoc(cotisationsCollection(), {
+  const newRef = push(cotisationsRef());
+  await set(newRef, {
     cagnotteId: cagnotte.id,
     ownerId: cagnotte.ownerId,
     name: input.name,
@@ -68,7 +58,7 @@ export async function updateCotisation(
   input: CotisationFormInput,
   actor: { uid: string; name: string }
 ): Promise<void> {
-  await updateDoc(doc(db, "cotisations", cotisationId), {
+  await update(ref(db, `cotisations/${cotisationId}`), {
     name: input.name,
     amount: input.amount,
     date: input.date,
@@ -93,7 +83,7 @@ export async function deleteCotisation(
   cotisation: Cotisation,
   actor: { uid: string; name: string }
 ): Promise<void> {
-  await deleteDoc(doc(db, "cotisations", cotisation.id));
+  await remove(ref(db, `cotisations/${cotisation.id}`));
 
   await logHistory({
     type: "cotisation_deleted",
@@ -116,11 +106,11 @@ export function subscribeCotisations(
   cb: (list: Cotisation[]) => void,
   onError?: (err: Error) => void
 ) {
-  const q = query(cotisationsCollection(), where("cagnotteId", "==", cagnotteId));
-  return onSnapshot(
+  const q = query(cotisationsRef(), orderByChild("cagnotteId"), equalTo(cagnotteId));
+  return onValue(
     q,
     (snap) => {
-      cb(sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation))));
+      cb(sortByDateDesc(snapshotToList<Cotisation>(snap)));
     },
     (err) => onError?.(err)
   );
@@ -132,11 +122,11 @@ export function subscribeAllCotisationsForOwner(
   cb: (list: Cotisation[]) => void,
   onError?: (err: Error) => void
 ) {
-  const q = query(cotisationsCollection(), where("ownerId", "==", uid));
-  return onSnapshot(
+  const q = query(cotisationsRef(), orderByChild("ownerId"), equalTo(uid));
+  return onValue(
     q,
     (snap) => {
-      cb(sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation))));
+      cb(sortByDateDesc(snapshotToList<Cotisation>(snap)));
     },
     (err) => onError?.(err)
   );
@@ -144,10 +134,10 @@ export function subscribeAllCotisationsForOwner(
 
 /** Vue Super Admin : toutes les cotisations de la plateforme, tous propriétaires confondus. */
 export function subscribeAllCotisationsAdmin(cb: (list: Cotisation[]) => void, onError?: (err: Error) => void) {
-  return onSnapshot(
-    cotisationsCollection(),
+  return onValue(
+    cotisationsRef(),
     (snap) => {
-      cb(sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Cotisation))));
+      cb(sortByDateDesc(snapshotToList<Cotisation>(snap)));
     },
     (err) => onError?.(err)
   );

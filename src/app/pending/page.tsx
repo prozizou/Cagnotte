@@ -28,7 +28,7 @@ const CONTENT: Record<string, { icon: typeof Clock; title: string; desc: string;
   error: {
     icon: AlertTriangle,
     title: "Impossible de charger votre profil",
-    desc: "La base de données a refusé la lecture — ce n'est pas un problème d'autorisation. Le cas le plus fréquent : les règles de sécurité Firestore (firestore.rules) n'ont pas encore été déployées sur le projet Firebase. Déployez-les puis réessayez.",
+    desc: "La base de données a refusé la lecture — ce n'est pas un problème d'autorisation. Le cas le plus fréquent : les règles de sécurité Realtime Database (database.rules.json) n'ont pas encore été déployées sur le projet Firebase. Déployez-les puis réessayez.",
     tone: "danger",
   },
 };
@@ -46,7 +46,7 @@ export default function PendingPage() {
     }
   }, [firebaseUser, profile, loading, profileLoading, router]);
 
-  // Une erreur de lecture (le plus souvent : règles Firestore non
+  // Une erreur de lecture (le plus souvent : règles Realtime Database non
   // déployées) est distincte d'un vrai statut "pending" — jamais confondue
   // avec une attente d'autorisation légitime, même pour le Super Admin.
   const status = profileError ? "error" : profile?.status || "pending";
