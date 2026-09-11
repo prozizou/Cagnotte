@@ -4,14 +4,35 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
+import { Field, inputClass } from "@/components/ui/Field";
 import { APP_TAGLINE } from "@/lib/constants";
 import toast from "react-hot-toast";
-import { ShieldCheck, TrendingUp, Users2 } from "lucide-react";
+import { ShieldCheck, TrendingUp, Users2, Eye, EyeOff } from "lucide-react";
+
+function authErrorMessage(code: string | undefined): string {
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/invalid-login-credentials":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Email ou mot de passe incorrect.";
+    case "auth/too-many-requests":
+      return "Trop de tentatives. Réessayez dans quelques minutes.";
+    case "auth/invalid-email":
+      return "Adresse email invalide.";
+    default:
+      return "Connexion impossible. Réessayez.";
+  }
+}
 
 export default function LoginPage() {
-  const { firebaseUser, profile, loading, profileLoading, signInWithGoogle } = useAuth();
+  const { firebaseUser, profile, loading, profileLoading, signInWithGoogle, signInWithEmail, sendPasswordReset } = useAuth();
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (loading || profileLoading || !firebaseUser) return;
@@ -22,14 +43,46 @@ export default function LoginPage() {
     }
   }, [firebaseUser, profile, loading, profileLoading, router]);
 
-  async function handleSignIn() {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || !password) {
+      toast.error("Renseignez votre email et votre mot de passe.");
+      return;
+    }
+    setSigningIn(true);
+    try {
+      await signInWithEmail(email.trim(), password);
+    } catch (err) {
+      toast.error(authErrorMessage((err as { code?: string })?.code));
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      toast.error("Saisissez d'abord votre email ci-dessus.");
+      return;
+    }
+    setResetting(true);
+    try {
+      await sendPasswordReset(email.trim());
+      toast.success("Email de réinitialisation envoyé ✔ (vérifiez vos spams)");
+    } catch (err) {
+      toast.error(authErrorMessage((err as { code?: string })?.code));
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  async function handleGoogleFallback() {
     setSigningIn(true);
     try {
       await signInWithGoogle();
     } catch (err) {
       const code = (err as { code?: string })?.code;
       if (code !== "auth/popup-closed-by-user" && code !== "auth/cancelled-popup-request") {
-        toast.error("Connexion impossible. Merci de réessayer.");
+        toast.error("Connexion impossible. Réessayez.");
       }
     } finally {
       setSigningIn(false);
@@ -45,21 +98,69 @@ export default function LoginPage() {
           <p className="mt-1.5 text-sm text-muted">{APP_TAGLINE}</p>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-line bg-surface p-6 shadow-sm">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-3.5 rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <Field label="Email" required>
+            <input
+              type="email"
+              autoComplete="username"
+              className={inputClass}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="nom@exemple.com"
+              autoFocus
+            />
+          </Field>
+          <Field label="Mot de passe" required>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                className={`${inputClass} pr-10`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
+                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </Field>
+
           <button
-            onClick={handleSignIn}
-            disabled={signingIn}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-line bg-white px-4 py-3 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted-soft disabled:opacity-60"
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={resetting}
+            className="text-xs font-medium text-primary hover:underline disabled:opacity-60"
           >
-            <GoogleIcon />
-            {signingIn ? "Connexion…" : "Continuer avec Google"}
+            {resetting ? "Envoi…" : "Mot de passe oublié ?"}
           </button>
 
-          <p className="mt-4 text-center text-xs leading-relaxed text-muted">
-            L&apos;accès à l&apos;application est soumis à l&apos;autorisation d&apos;un
-            administrateur après votre première connexion.
+          <button
+            type="submit"
+            disabled={signingIn}
+            className="flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+          >
+            {signingIn ? "Connexion…" : "Se connecter"}
+          </button>
+
+          <p className="text-center text-xs leading-relaxed text-muted">
+            Connectez-vous avec les identifiants fournis par votre administrateur.
           </p>
-        </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleFallback}
+            disabled={signingIn}
+            className="mx-auto block text-xs font-medium text-muted hover:text-foreground hover:underline"
+          >
+            Compte déjà lié à Google ? Se connecter avec Google
+          </button>
+        </form>
 
         <div className="mt-8 grid grid-cols-3 gap-3 text-center">
           <Feature icon={Users2} label="Multi-utilisateur" />
@@ -79,28 +180,5 @@ function Feature({ icon: Icon, label }: { icon: typeof Users2; label: string }) 
       </span>
       <span className="text-[11px] font-medium text-muted">{label}</span>
     </div>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24">
-      <path
-        fill="#4285F4"
-        d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.44c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.59-5.17 3.59-8.82z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29A11.94 11.94 0 0 0 0 12c0 1.93.46 3.76 1.29 5.38l3.98-3.09z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
-      />
-    </svg>
   );
 }
