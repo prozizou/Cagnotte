@@ -16,7 +16,7 @@ export default function RootPage() {
     } else if (!profile || profile.status !== "approved") {
       router.replace("/pending");
     } else {
-      router.replace(profile.role === "superadmin" ? "/utilisateurs" : "/dashboard");
+      router.replace("/dashboard");
     }
   }, [firebaseUser, profile, loading, profileLoading, router]);
 

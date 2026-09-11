@@ -1,33 +1,20 @@
-import {
-  LayoutDashboard,
-  Wallet,
-  Receipt,
-  BarChart3,
-  History,
-  Users,
-  Settings,
-  FileJson,
-  LucideIcon,
-} from "lucide-react";
+import { Home, Wallet, Receipt, Users, MoreHorizontal, LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
   superAdminOnly?: boolean;
-  // Masqué pour le Super Admin : son parcours passe désormais par
-  // Utilisateurs → fiche d'un compte → ses cagnottes, plutôt que par ces
-  // pages orientées "espace personnel" d'un utilisateur standard.
-  hiddenForSuperAdmin?: boolean;
 }
 
+// Navigation à 5 entrées maximum : Accueil, Cagnottes, Cotisations,
+// Utilisateurs (Super Admin uniquement) et Plus (rapports, historique,
+// paramètres — et import JSON pour le Super Admin). Un utilisateur
+// standard n'en voit que 4 (pas de gestion des comptes).
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, hiddenForSuperAdmin: true },
-  { href: "/cagnottes", label: "Mes cagnottes", icon: Wallet, hiddenForSuperAdmin: true },
+  { href: "/dashboard", label: "Accueil", icon: Home },
+  { href: "/cagnottes", label: "Cagnottes", icon: Wallet },
   { href: "/cotisations", label: "Cotisations", icon: Receipt },
-  { href: "/rapports", label: "Rapports & Bilan", icon: BarChart3, hiddenForSuperAdmin: true },
-  { href: "/historique", label: "Historique", icon: History, hiddenForSuperAdmin: true },
   { href: "/utilisateurs", label: "Utilisateurs", icon: Users, superAdminOnly: true },
-  { href: "/import", label: "Import JSON", icon: FileJson, superAdminOnly: true },
-  { href: "/parametres", label: "Paramètres", icon: Settings, hiddenForSuperAdmin: true },
+  { href: "/plus", label: "Plus", icon: MoreHorizontal },
 ];
