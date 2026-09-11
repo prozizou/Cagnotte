@@ -304,7 +304,7 @@ export default function JsonImportPage() {
                 targetMode === "existing"
                   ? `à « ${cagnottes.find((c) => c.id === cagnotteId)?.title || ""} »`
                   : `à une nouvelle cagnotte « ${title} » pour ${selectedOwner?.displayName || ""}`
-              }. Cette action écrit directement dans Firestore.`
+              }. Cette action écrit directement dans Realtime Database.`
             : ""
         }
         confirmLabel={importing ? "Import en cours…" : "Importer"}

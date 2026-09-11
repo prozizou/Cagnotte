@@ -1,0 +1,197 @@
+// ============================================================================
+// Règles de sécurité Realtime Database — Cotiz
+//
+// Principes (identiques à l'ancienne version Firestore) :
+//  - Aucune donnée n'est accessible sans authentification Google.
+//  - Un compte doit être au statut "approved" pour lire/écrire des données
+//    métier (cagnottes, cotisations). Un utilisateur ne peut jamais
+//    s'auto-approuver, changer son propre statut ou son propre rôle.
+//  - Chaque cagnotte et ses cotisations appartiennent à un seul propriétaire
+//    (ownerId) : un utilisateur standard ne voit et ne modifie que ses
+//    propres données. Le Super Administrateur peut tout lire et gérer les
+//    comptes utilisateurs.
+//  - Le journal d'historique ("history") est en écriture seule
+//    (append-only) : aucune modification ni suppression n'est jamais
+//    autorisée.
+//  - Les requêtes filtrées (orderByChild + equalTo) ne sont autorisées que
+//    lorsqu'elles portent exactement sur le champ attendu (ex. ownerId ==
+//    uid de l'appelant) : Realtime Database applique lui-même ce filtre
+//    côté serveur avant de renvoyer les résultats, donc valider la forme
+//    de la requête suffit à garantir qu'aucune donnée d'un autre
+//    propriétaire ne peut être renvoyée.
+// ============================================================================
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      // "list" (lecture du nœud entier) : réservé au Super Admin.
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'superadmin'",
+      ".indexOn": ["email"],
+
+      "$uid": {
+        // "get" (lecture d'un profil précis) : soi-même, ou le Super Admin.
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'superadmin')",
+
+        ".write": "auth != null && (
+            // création par l'utilisateur lui-même, à la première connexion
+            (!data.exists() && newData.exists() && auth.uid === $uid
+              && newData.child('uid').val() === $uid
+              && newData.child('email').val() === auth.token.email
+              && newData.hasChildren(['uid','email','displayName','status','role'])
+              && (
+                (auth.token.email === 'prozizou298@gmail.com' && newData.child('role').val() === 'superadmin' && newData.child('status').val() === 'approved')
+                || (auth.token.email !== 'prozizou298@gmail.com' && newData.child('role').val() === 'user' && newData.child('status').val() === 'pending')
+              )
+            )
+            // pré-approbation par le Super Admin (création pour un autre uid, avant sa première connexion)
+            || (!data.exists() && newData.exists() && auth.uid !== $uid
+              && root.child('users').child(auth.uid).child('role').val() === 'superadmin'
+              && root.child('users').child(auth.uid).child('status').val() === 'approved'
+              && newData.child('uid').val() === $uid
+              && newData.hasChildren(['uid','email','displayName','status','role'])
+              && newData.child('role').val() === 'user'
+              && newData.child('status').val() === 'approved'
+            )
+            // mise à jour de son propre profil (jamais status/role/uid/email)
+            || (data.exists() && newData.exists() && auth.uid === $uid
+              && newData.child('status').val() === data.child('status').val()
+              && newData.child('role').val() === data.child('role').val()
+              && newData.child('uid').val() === data.child('uid').val()
+              && newData.child('email').val() === data.child('email').val()
+            )
+            // gestion des autorisations d'accès par le Super Admin
+            || (data.exists() && newData.exists() && auth.uid !== $uid
+              && root.child('users').child(auth.uid).child('role').val() === 'superadmin'
+              && root.child('users').child(auth.uid).child('status').val() === 'approved'
+              && newData.child('uid').val() === data.child('uid').val()
+              && newData.child('email').val() === data.child('email').val()
+              && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'approved' || newData.child('status').val() === 'rejected' || newData.child('status').val() === 'suspended')
+            )
+            // suppression définitive par le Super Admin, jamais pour son propre compte
+            || (data.exists() && !newData.exists() && auth.uid !== $uid
+              && root.child('users').child(auth.uid).child('role').val() === 'superadmin'
+              && root.child('users').child(auth.uid).child('status').val() === 'approved'
+            )
+          )"
+      }
+    },
+
+    "cagnottes": {
+      // Lecture non filtrée : réservée au Super Admin. Lecture filtrée :
+      // un utilisateur approuvé ne peut interroger que ownerId == son uid.
+      ".read": "auth != null && (
+          (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+          || (root.child('users').child(auth.uid).child('status').val() === 'approved' && query.orderByChild === 'ownerId' && query.equalTo === auth.uid)
+        )",
+      ".indexOn": ["ownerId"],
+
+      "$cagnotteId": {
+        // Lecture directe d'une cagnotte précise (ex. page de détail).
+        ".read": "auth != null
+          && (data.child('ownerId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'superadmin')
+          && (root.child('users').child(auth.uid).child('status').val() === 'approved' || root.child('users').child(auth.uid).child('role').val() === 'superadmin')",
+
+        ".write": "auth != null && (
+            // création : un utilisateur approuvé crée ses propres cagnottes ; le Super Admin peut en créer pour n'importe quel ownerId
+            (!data.exists() && newData.exists()
+              && newData.child('title').isString() && newData.child('title').val().length > 0
+              && newData.child('goalAmount').isNumber() && newData.child('goalAmount').val() >= 0
+              && (newData.child('status').val() === 'draft' || newData.child('status').val() === 'active' || newData.child('status').val() === 'completed' || newData.child('status').val() === 'archived')
+              && (
+                (root.child('users').child(auth.uid).child('status').val() === 'approved' && newData.child('ownerId').val() === auth.uid)
+                || (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+              )
+            )
+            // mise à jour
+            || (data.exists() && newData.exists()
+              && newData.child('ownerId').val() === data.child('ownerId').val()
+              && newData.child('title').isString() && newData.child('title').val().length > 0
+              && (newData.child('status').val() === 'draft' || newData.child('status').val() === 'active' || newData.child('status').val() === 'completed' || newData.child('status').val() === 'archived')
+              && (
+                (root.child('users').child(auth.uid).child('status').val() === 'approved' && data.child('ownerId').val() === auth.uid)
+                || (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+              )
+            )
+            // suppression
+            || (data.exists() && !newData.exists()
+              && (
+                (root.child('users').child(auth.uid).child('status').val() === 'approved' && data.child('ownerId').val() === auth.uid)
+                || (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+              )
+            )
+          )"
+      }
+    },
+
+    // Nœud de premier niveau (et non un enfant de "cagnottes") : chaque
+    // cotisation porte ses propres champs cagnotteId/ownerId dénormalisés.
+    // ownerId doit toujours correspondre au véritable propriétaire de la
+    // cagnotte parente (intégrité des données), quel que soit l'auteur de
+    // l'écriture.
+    "cotisations": {
+      ".read": "auth != null && (
+          (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+          || (root.child('users').child(auth.uid).child('status').val() === 'approved' && query.orderByChild === 'ownerId' && query.equalTo === auth.uid)
+          || (root.child('users').child(auth.uid).child('status').val() === 'approved' && query.orderByChild === 'cagnotteId' && root.child('cagnottes').child(query.equalTo).child('ownerId').val() === auth.uid)
+        )",
+      ".indexOn": ["ownerId", "cagnotteId"],
+
+      "$cotisationId": {
+        ".write": "auth != null && (
+            // création : l'auteur doit être le propriétaire de la cagnotte parente, ou le Super Admin
+            (!data.exists() && newData.exists()
+              && root.child('cagnottes').child(newData.child('cagnotteId').val()).child('status').val() !== 'archived'
+              && newData.child('ownerId').val() === root.child('cagnottes').child(newData.child('cagnotteId').val()).child('ownerId').val()
+              && newData.child('name').isString() && newData.child('name').val().length > 0
+              && newData.child('amount').isNumber() && newData.child('amount').val() > 0
+              && (
+                (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('cagnottes').child(newData.child('cagnotteId').val()).child('ownerId').val() === auth.uid)
+                || (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+              )
+            )
+            // mise à jour : réservée au propriétaire (jamais le Super Admin, comme côté Firestore)
+            || (data.exists() && newData.exists()
+              && root.child('users').child(auth.uid).child('status').val() === 'approved'
+              && data.child('ownerId').val() === auth.uid
+              && root.child('cagnottes').child(data.child('cagnotteId').val()).child('ownerId').val() === auth.uid
+              && root.child('cagnottes').child(data.child('cagnotteId').val()).child('status').val() !== 'archived'
+              && newData.child('ownerId').val() === data.child('ownerId').val()
+              && newData.child('cagnotteId').val() === data.child('cagnotteId').val()
+              && newData.child('amount').isNumber() && newData.child('amount').val() > 0
+            )
+            // suppression : le propriétaire, ou le Super Admin
+            || (data.exists() && !newData.exists()
+              && (
+                (root.child('users').child(auth.uid).child('status').val() === 'approved'
+                  && data.child('ownerId').val() === auth.uid
+                  && root.child('cagnottes').child(data.child('cagnotteId').val()).child('ownerId').val() === auth.uid
+                  && root.child('cagnottes').child(data.child('cagnotteId').val()).child('status').val() !== 'archived')
+                || (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+              )
+            )
+          )"
+      }
+    },
+
+    // Journal d'audit append-only : aucune modification ni suppression,
+    // jamais, même par le propriétaire ou le Super Admin.
+    "history": {
+      ".read": "auth != null && (
+          (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+          || (query.orderByChild === 'ownerId' && query.equalTo === auth.uid)
+        )",
+      ".indexOn": ["ownerId", "cagnotteId"],
+
+      "$entryId": {
+        ".write": "auth != null && !data.exists() && newData.exists()
+          && newData.child('actorId').val() === auth.uid
+          && (
+            root.child('users').child(auth.uid).child('status').val() === 'approved'
+            || (root.child('users').child(auth.uid).child('role').val() === 'superadmin' && root.child('users').child(auth.uid).child('status').val() === 'approved')
+          )"
+      }
+    }
+  }
+}

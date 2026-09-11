@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { get, push, ref, serverTimestamp, set, update } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { logHistory } from "@/lib/data/history";
 import { formatFCFA, todayISO } from "@/lib/format";
@@ -91,39 +91,37 @@ export function parseImportJSON(raw: string): ParseImportResult {
   return { entries, errors, warnings };
 }
 
-/** Écrit les cotisations par lots de 450 (marge sous la limite de 500 écritures/batch Firestore). */
-const BATCH_CHUNK = 450;
-
 export async function importEntriesToCagnotte(
   cagnotteId: string,
   entries: ParsedImportEntry[],
   actor: { uid: string; name: string }
 ): Promise<{ count: number; total: number }> {
-  const cagnotteSnap = await getDoc(doc(db, "cagnottes", cagnotteId));
+  const cagnotteSnap = await get(ref(db, `cagnottes/${cagnotteId}`));
   if (!cagnotteSnap.exists()) throw new Error("Cette cagnotte n'existe plus.");
-  const cagnotte = cagnotteSnap.data() as Cagnotte;
+  const cagnotte = cagnotteSnap.val() as Cagnotte;
 
+  // Une seule écriture multi-chemins atomique (Realtime Database n'impose
+  // pas la limite de 500 opérations/batch de Firestore) : pas besoin de
+  // découper en lots, même pour plusieurs centaines d'entrées.
   let total = 0;
-  for (let i = 0; i < entries.length; i += BATCH_CHUNK) {
-    const batch = writeBatch(db);
-    for (const entry of entries.slice(i, i + BATCH_CHUNK)) {
-      total += entry.amount;
-      const ref = doc(collection(db, "cotisations"));
-      batch.set(ref, {
-        cagnotteId,
-        ownerId: cagnotte.ownerId,
-        name: entry.name,
-        amount: entry.amount,
-        date: entry.date,
-        comment: "",
-        createdBy: actor.uid,
-        createdByName: actor.name,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-    await batch.commit();
+  const updates: Record<string, unknown> = {};
+  for (const entry of entries) {
+    total += entry.amount;
+    const entryRef = push(ref(db, "cotisations"));
+    updates[`cotisations/${entryRef.key}`] = {
+      cagnotteId,
+      ownerId: cagnotte.ownerId,
+      name: entry.name,
+      amount: entry.amount,
+      date: entry.date,
+      comment: "",
+      createdBy: actor.uid,
+      createdByName: actor.name,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
   }
+  await update(ref(db), updates);
 
   await logHistory({
     type: "cotisation_added",
@@ -153,7 +151,8 @@ export async function createCagnotteForImport(
   input: NewCagnotteForImport,
   actor: { uid: string; name: string }
 ): Promise<{ id: string; title: string }> {
-  const ref = await addDoc(collection(db, "cagnottes"), {
+  const newRef = push(ref(db, "cagnottes"));
+  await set(newRef, {
     ownerId: input.ownerId,
     ownerName: input.ownerName,
     title: input.title,
@@ -166,16 +165,17 @@ export async function createCagnotteForImport(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  const cagnotteId = newRef.key as string;
 
   await logHistory({
     type: "cagnotte_created",
     description: `Cagnotte « ${input.title} » créée (import JSON)`,
     ownerId: input.ownerId,
-    cagnotteId: ref.id,
+    cagnotteId,
     cagnotteTitle: input.title,
     actorId: actor.uid,
     actorName: actor.name,
   });
 
-  return { id: ref.id, title: input.title };
+  return { id: cagnotteId, title: input.title };
 }

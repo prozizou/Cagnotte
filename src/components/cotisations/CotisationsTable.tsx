@@ -208,7 +208,5 @@ export function CotisationsTable({
 }
 
 function cmpCreated(a: Cotisation, b: Cotisation): number {
-  const aMs = a.createdAt?.toMillis?.() ?? 0;
-  const bMs = b.createdAt?.toMillis?.() ?? 0;
-  return aMs - bMs;
+  return (a.createdAt ?? 0) - (b.createdAt ?? 0);
 }

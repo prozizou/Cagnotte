@@ -13,25 +13,23 @@ l'application ne traite aucun paiement en ligne.
 
 - **Next.js 16** (App Router, TypeScript, Turbopack)
 - **Tailwind CSS v4**
-- **Firebase** : Authentication (Google), Firestore, Security Rules
+- **Firebase** : Authentication (Google), Realtime Database, Security Rules
 - **Recharts** pour les graphiques, **jsPDF** / **ExcelJS** pour les exports
 
 ## 1. Préparer le projet Firebase
 
-L'application utilise **Firestore**, pas la Realtime Database. Si vous avez
-déjà un projet Firebase (par exemple avec une RTDB existante), **réutilisez
-ce même projet** — Firestore et RTDB peuvent cohabiter sans problème dans un
-seul et même projet Firebase ; inutile d'en créer un nouveau.
+L'application utilise **Realtime Database**. Si vous avez déjà un projet
+Firebase (par exemple avec une RTDB existante, ce qui est le cas ici :
+c'est la même base que l'ancienne page), réutilisez ce même projet.
 
 1. Sur la [Console Firebase](https://console.firebase.google.com/), ouvrez
    votre projet existant (ou créez-en un si vous partez de zéro).
 2. **Authentication** → Sign-in method → activez **Google** (si ce n'est pas
    déjà fait).
-3. **Firestore Database** → **Créer une base de données** (mode production,
-   région de votre choix). Cela n'affecte pas votre RTDB existante : les
-   deux bases sont indépendantes et peuvent tourner en parallèle. Vous
-   pouvez conserver ou supprimer votre RTDB par la suite, comme vous
-   voulez — cette application ne l'utilise plus.
+3. **Realtime Database** → si elle n'existe pas déjà, **Créer une base de
+   données** (mode verrouillé — les règles ci-dessous seront déployées
+   ensuite). Notez son **URL** affichée en haut de la page (ex.
+   `https://<projet>-default-rtdb.<région>.firebasedatabase.app`).
 4. **Paramètres du projet** → Vos applications → si une application Web
    existe déjà (c'était le cas pour l'ancienne page), réutilisez sa
    configuration ; sinon ajoutez-en une et copiez la configuration.
@@ -43,11 +41,12 @@ cp .env.local.example .env.local
 ```
 
 Renseignez les valeurs issues de la configuration Firebase (`apiKey`,
-`authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`).
-Si vous réutilisez votre projet existant, ce sont les mêmes valeurs que
-celles qui figuraient dans l'ancienne page (`apiKey`, `authDomain`,
-`projectId`, etc.) — seul le champ `databaseURL` (spécifique à la RTDB)
-ne sert plus et peut être ignoré.
+`authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`)
+**et** `databaseURL` (l'URL notée à l'étape précédente) dans
+`NEXT_PUBLIC_FIREBASE_DATABASE_URL`. Sans cette dernière, le SDK ne peut
+pas se connecter à la base.
+
+Pensez à renseigner les mêmes variables côté hébergeur (Vercel, etc.).
 
 ## 3. Super Administrateur
 
@@ -57,18 +56,21 @@ connexion. Tout autre compte démarre au statut `pending` et doit être
 autorisé depuis la page **Utilisateurs** par le Super Admin.
 
 Pour changer ce compte, modifiez `SUPER_ADMIN_EMAIL` dans
-`src/lib/constants.ts` **et** l'adresse codée en dur dans `firestore.rules`
-(fonction `isSuperAdminEmail`) — les deux doivent rester synchronisés, la
-véritable barrière de sécurité étant celle des règles Firestore.
+`src/lib/constants.ts` **et** l'adresse codée en dur dans
+`database.rules.json` — les deux doivent rester synchronisés, la véritable
+barrière de sécurité étant celle des règles Realtime Database.
 
-## 4. Déployer les règles de sécurité Firestore
+## 4. Déployer les règles de sécurité Realtime Database
 
 ```bash
 npm install -g firebase-tools   # si nécessaire
 firebase login
 firebase use --add               # sélectionnez votre projet
-firebase deploy --only firestore:rules,firestore:indexes
+firebase deploy --only database
 ```
+
+Vous pouvez aussi coller le contenu de `database.rules.json` directement
+dans Console Firebase → Realtime Database → onglet **Règles**.
 
 ⚠️ Sans ces règles, la base de données reste protégée par les règles par
 défaut de votre projet (généralement tout refusé) — l'application ne
@@ -93,29 +95,43 @@ npm run start
 Déployable sur Vercel, Firebase App Hosting, ou tout hébergeur compatible
 Next.js (Node.js).
 
-## Migration des données existantes (RTDB → Firestore)
+## Migration depuis l'ancienne architecture Firestore
 
-Les anciennes cotisations de la RTDB (nœud `cagnotte_db`) ne sont pas
-reprises automatiquement : elles vivaient dans un modèle « une seule
-cagnotte, sans propriétaire » incompatible avec l'isolation multi-
-utilisateur de la nouvelle application. Si vous voulez les récupérer dans
-une nouvelle cagnotte Firestore rattachée à votre compte, dites-le et un
-script de migration ponctuel pourra être écrit (lecture de la RTDB,
-création d'une cagnotte + de ses cotisations sous votre `ownerId`).
+Cette application a d'abord été construite sur Firestore, puis basculée
+vers Realtime Database. La page ponctuelle `/migration-rtdb` (Super Admin
+uniquement, non liée dans le menu) recopie les données Firestore
+existantes (`users`, `cagnottes`, `cotisations`, `history`) vers Realtime
+Database, en conservant les identifiants de documents — sans risque à
+relancer plusieurs fois. Prérequis : `database.rules.json` déjà déployé et
+les anciennes règles Firestore encore actives (pour que la lecture
+fonctionne le temps de la migration). Une fois la migration confirmée, ce
+module (`src/lib/data/migrateFirestoreToRtdb.ts`, la page
+`/migration-rtdb`, et l'export temporaire `firestoreDb` dans
+`src/lib/firebase.ts`) peuvent être supprimés.
 
-## Modèle de données (Firestore)
+## Modèle de données (Realtime Database)
 
-- `users/{uid}` — profil, statut d'accès (`pending`/`approved`/`rejected`/`suspended`), rôle (`user`/`superadmin`)
-- `cagnottes/{id}` — une cagnotte, avec `ownerId` (isolation multi-utilisateur)
-  - `cagnottes/{id}/cotisations/{id}` — les cotisations de la cagnotte
-- `history/{id}` — journal d'audit en écriture seule (append-only)
+```
+users/{uid}          — profil, statut d'accès (pending/approved/rejected/suspended), rôle (user/superadmin)
+cagnottes/{id}        — une cagnotte, avec ownerId (isolation multi-utilisateur)
+cotisations/{id}      — une cotisation, avec cagnotteId + ownerId dénormalisés
+history/{id}          — journal d'audit en écriture seule (append-only)
+```
+
+`cotisations` est un nœud de premier niveau (et non imbriqué sous
+`cagnottes`) : chaque cotisation porte ses propres `cagnotteId`/`ownerId`,
+ce qui permet de l'interroger par cagnotte ou par propriétaire avec une
+simple requête `orderByChild` + `equalTo` (indexée via `.indexOn` dans
+`database.rules.json`), sans jamais combiner deux critères dans une même
+requête (Realtime Database ne le permet pas) — le tri final se fait côté
+client.
 
 Tous les totaux et statistiques affichés (montant collecté, progression,
 moyenne, etc.) sont **calculés en direct** à partir des cotisations
 enregistrées — jamais stockés séparément — afin d'éviter toute divergence
 entre l'affichage et les données réelles.
 
-La sécurité repose sur les règles Firestore (`firestore.rules`), pas
-uniquement sur les contrôles de l'interface : un utilisateur non approuvé
-ou non propriétaire d'une cagnotte ne peut ni la lire, ni la modifier, quel
-que soit ce que fait le frontend.
+La sécurité repose sur les règles Realtime Database
+(`database.rules.json`), pas uniquement sur les contrôles de l'interface :
+un utilisateur non approuvé ou non propriétaire d'une cagnotte ne peut ni
+la lire, ni la modifier, quel que soit ce que fait le frontend.

@@ -8,6 +8,7 @@ import {
   browserLocalPersistence,
   type Auth,
 } from "firebase/auth";
+import { getDatabase, type Database } from "firebase/database";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -17,6 +18,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
 };
 
 // Le SDK Firebase (Auth notamment) valide immédiatement la configuration et
@@ -30,12 +32,17 @@ const firebaseConfig = {
 // risque : `auth`/`db` sont garantis initialisés avant leur premier usage.
 let app = {} as FirebaseApp;
 let auth = {} as Auth;
-let db = {} as Firestore;
+let db = {} as Database;
+// Conservé uniquement pour la page ponctuelle de migration des anciennes
+// données Firestore vers Realtime Database (/migration-rtdb) — à retirer,
+// avec cette page, une fois la migration effectuée.
+let firestoreDb = {} as Firestore;
 
 if (typeof window !== "undefined") {
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = getFirestore(app);
+  db = getDatabase(app);
+  firestoreDb = getFirestore(app);
 
   // Persistance locale : un utilisateur déjà connecté reste connecté après
   // une actualisation de la page (comportement par défaut du SDK web, rendu
@@ -46,7 +53,7 @@ if (typeof window !== "undefined") {
   });
 }
 
-export { app, auth, db };
+export { app, auth, db, firestoreDb };
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });

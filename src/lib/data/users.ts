@@ -1,29 +1,34 @@
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { DataSnapshot, get, onValue, ref, remove, serverTimestamp, set, update } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { UserProfile, UserStatus } from "@/lib/types";
 import { logHistory } from "./history";
 
+// Tri effectué côté client : Realtime Database ne conserve pas d'ordre
+// "desc" natif, et le volume d'utilisateurs reste modeste pour ce type
+// d'app.
+function sortByCreatedAtDesc(list: UserProfile[]): UserProfile[] {
+  return [...list].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+// Ne réutilise pas snapshotToList() : un profil s'identifie déjà par son
+// champ "uid" (== la clé RTDB), pas par un "id" séparé.
+function snapshotToUsers(snap: DataSnapshot): UserProfile[] {
+  const list: UserProfile[] = [];
+  snap.forEach((child) => {
+    list.push(child.val() as UserProfile);
+  });
+  return list;
+}
+
 export function subscribeAllUsers(cb: (users: UserProfile[]) => void) {
-  const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => d.data() as UserProfile));
+  return onValue(ref(db, "users"), (snap) => {
+    cb(sortByCreatedAtDesc(snapshotToUsers(snap)));
   });
 }
 
 export function subscribeUserProfile(uid: string, cb: (profile: UserProfile | null) => void) {
-  return onSnapshot(doc(db, "users", uid), (snap) => {
-    cb(snap.exists() ? (snap.data() as UserProfile) : null);
+  return onValue(ref(db, `users/${uid}`), (snap) => {
+    cb(snap.exists() ? (snap.val() as UserProfile) : null);
   });
 }
 
@@ -36,7 +41,7 @@ async function setUserStatus(
   actor: { uid: string; name: string },
   label: string
 ): Promise<void> {
-  await updateDoc(doc(db, "users", target.uid), {
+  await update(ref(db, `users/${target.uid}`), {
     status,
     updatedAt: serverTimestamp(),
     approvedBy: actor.uid,
@@ -75,13 +80,13 @@ export const revokeUser = (target: UserProfile, actor: { uid: string; name: stri
  * un jour. Ne supprime pas ses éventuelles cagnottes/cotisations, qui
  * restent visibles côté Super Admin — à supprimer séparément si besoin.
  * Ne supprime jamais le compte du Super Admin appelant lui-même (règle
- * Firestore appliquée indépendamment de l'UI).
+ * Realtime Database appliquée indépendamment de l'UI).
  */
 export async function deleteUserProfile(target: UserProfile, actor: { uid: string; name: string }): Promise<void> {
   if (target.uid === actor.uid) {
     throw new Error("Impossible de supprimer son propre compte.");
   }
-  await deleteDoc(doc(db, "users", target.uid));
+  await remove(ref(db, `users/${target.uid}`));
 
   await logHistory({
     type: "user_deleted",
@@ -114,13 +119,13 @@ export async function preApproveUser(input: PreApproveInput, actor: { uid: strin
   if (!uid) throw new Error("UID obligatoire.");
   if (!email) throw new Error("Email obligatoire.");
 
-  const ref = doc(db, "users", uid);
-  const existing = await getDoc(ref);
+  const userRef = ref(db, `users/${uid}`);
+  const existing = await get(userRef);
   if (existing.exists()) {
     throw new Error("Un profil existe déjà pour cet UID.");
   }
 
-  await setDoc(ref, {
+  await set(userRef, {
     uid,
     email,
     displayName: input.displayName.trim() || email,

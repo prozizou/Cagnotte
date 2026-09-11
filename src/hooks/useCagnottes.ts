@@ -28,7 +28,7 @@ export function useCagnottes() {
     };
     const onError = (err: Error) => {
       // Ne jamais laisser un chargement bloqué indéfiniment en silence :
-      // on affiche l'erreur réelle (ex. permission Firestore refusée)
+      // on affiche l'erreur réelle (ex. permission Realtime Database refusée)
       // plutôt qu'un skeleton qui ne se résout jamais.
       setLoading(false);
       toast.error("Impossible de charger les cagnottes : " + err.message);
