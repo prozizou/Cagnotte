@@ -13,7 +13,7 @@ l'application ne traite aucun paiement en ligne.
 
 - **Next.js 16** (App Router, TypeScript, Turbopack)
 - **Tailwind CSS v4**
-- **Firebase** : Authentication (Google), Realtime Database, Security Rules
+- **Firebase** : Authentication (Email/Mot de passe, Google en secours), Realtime Database, Security Rules
 - **Recharts** pour les graphiques, **jsPDF** / **ExcelJS** pour les exports
 
 ## 1. Préparer le projet Firebase
@@ -24,8 +24,10 @@ c'est la même base que l'ancienne page), réutilisez ce même projet.
 
 1. Sur la [Console Firebase](https://console.firebase.google.com/), ouvrez
    votre projet existant (ou créez-en un si vous partez de zéro).
-2. **Authentication** → Sign-in method → activez **Google** (si ce n'est pas
-   déjà fait).
+2. **Authentication** → Sign-in method → activez **Email/Mot de passe**
+   (méthode principale : le Super Admin crée chaque compte avec un email et
+   un mot de passe) **et Google** (conservé comme secours pour les comptes
+   déjà liés, avant suppression définitive une fois la bascule confirmée).
 3. **Realtime Database** → si elle n'existe pas déjà, **Créer une base de
    données** (mode verrouillé — les règles ci-dessous seront déployées
    ensuite). Notez son **URL** affichée en haut de la page (ex.

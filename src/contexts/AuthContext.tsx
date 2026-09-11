@@ -12,6 +12,8 @@ import {
   User as FirebaseUser,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { onValue, ref, serverTimestamp, set } from "firebase/database";
@@ -34,6 +36,8 @@ interface AuthContextValue {
   isSuperAdmin: boolean;
   isApproved: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -128,6 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isApproved: profile?.status === "approved",
       signInWithGoogle: async () => {
         await signInWithPopup(auth, googleProvider);
+      },
+      signInWithEmail: async (email: string, password: string) => {
+        await signInWithEmailAndPassword(auth, email, password);
+      },
+      sendPasswordReset: async (email: string) => {
+        await sendPasswordResetEmail(auth, email);
       },
       signOut: async () => {
         await firebaseSignOut(auth);
