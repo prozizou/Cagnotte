@@ -11,20 +11,31 @@ import { KPICard, KPICardSkeleton } from "@/components/ui/KPICard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CagnotteStatusBadge, UserStatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { formatFCFA, formatDateTime } from "@/lib/format";
+import { formatFCFA, formatPct, formatDateTime } from "@/lib/format";
+import { computeCagnotteStats, buildEvolutionSeries, EvolutionPeriod } from "@/lib/stats";
 import { subscribeHistoryForOwner, subscribeAllHistory } from "@/lib/data/history";
 import { subscribeAllUsers } from "@/lib/data/users";
 import { HistoryEntry, UserProfile } from "@/lib/types";
 import { HistoryIcon } from "@/components/history/HistoryIcon";
+import clsx from "clsx";
 import {
   BarChart,
   Bar,
+  ComposedChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+
+const EVOLUTION_PERIODS: Array<{ value: EvolutionPeriod; label: string }> = [
+  { value: "7j", label: "7 jours" },
+  { value: "30j", label: "30 jours" },
+  { value: "year", label: "Cette année" },
+  { value: "all", label: "Tout" },
+];
 
 export default function DashboardPage() {
   const { profile, firebaseUser, isSuperAdmin } = useAuth();
@@ -34,6 +45,7 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [period, setPeriod] = useState<EvolutionPeriod>("30j");
 
   useEffect(() => {
     if (!firebaseUser) return;
@@ -59,6 +71,13 @@ export default function DashboardPage() {
     const uniqueNames = new Set(cotisations.map((c) => c.name.trim().toLowerCase()).filter(Boolean));
     return { active, completed, total, contributors: uniqueNames.size };
   }, [cagnottes, cotisations]);
+
+  const goalStats = useMemo(() => {
+    const totalGoal = cagnottes.reduce((s, c) => s + (c.goalAmount || 0), 0);
+    return computeCagnotteStats(cotisations, totalGoal);
+  }, [cagnottes, cotisations]);
+
+  const evolutionData = useMemo(() => buildEvolutionSeries(cotisations, period), [cotisations, period]);
 
   const chartData = useMemo(() => {
     const byId = new Map(cagnottes.map((c) => [c.id, { title: c.title, total: 0 }]));
@@ -114,6 +133,48 @@ export default function DashboardPage() {
         </Link>
       )}
 
+      {/* Objectif global & progression */}
+      {loading ? (
+        <div className="skeleton h-28 w-full rounded-2xl" />
+      ) : (
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+          {goalStats.goalAmount > 0 ? (
+            <>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(goalStats.totalCollected)}</span>
+                  <span className="ml-1.5 text-sm text-muted">collecté sur {formatFCFA(goalStats.goalAmount)}</span>
+                </div>
+                <span className={`text-sm font-bold ${goalStats.isGoalReached ? "text-success" : "text-primary"}`}>
+                  {formatPct(goalStats.progressPct)}
+                </span>
+              </div>
+              <div className="mt-3">
+                <ProgressBar pct={goalStats.progressPct} goalReached={goalStats.isGoalReached} />
+              </div>
+              <p className="mt-2.5 text-sm">
+                {goalStats.isGoalReached ? (
+                  <span className="font-semibold text-success">🎉 Objectifs atteints — 100 %</span>
+                ) : (
+                  <span className="text-muted">
+                    Reste <span className="font-semibold text-foreground">{formatFCFA(goalStats.remaining)}</span> à
+                    collecter, tous objectifs confondus
+                  </span>
+                )}
+              </p>
+            </>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(goalStats.totalCollected)}</span>
+                <span className="ml-1.5 text-sm text-muted">collecté au total</span>
+              </div>
+              <span className="text-xs text-muted">Aucun objectif défini</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
@@ -124,6 +185,46 @@ export default function DashboardPage() {
             <KPICard icon={Coins} label="Total collecté" value={formatFCFA(stats.total)} tone="warning" />
             <KPICard icon={Users} label="Cotisants" value={String(stats.contributors)} />
           </>
+        )}
+      </div>
+
+      {/* Évolution des montants collectés */}
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-foreground">Évolution des montants collectés</h2>
+          <div className="flex gap-1.5">
+            {EVOLUTION_PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={clsx(
+                  "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                  period === p.value ? "bg-primary text-white" : "bg-muted-soft text-muted hover:text-foreground"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {loading ? (
+          <div className="skeleton h-56 w-full" />
+        ) : evolutionData.length === 0 ? (
+          <p className="py-16 text-center text-sm text-muted">Aucune donnée pour cette période.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={230}>
+            <ComposedChart data={evolutionData} margin={{ left: -18, right: 8 }}>
+              <CartesianGrid vertical={false} stroke="#e2e8f0" />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={70} tickFormatter={(v) => Number(v).toLocaleString("fr-FR")} />
+              <Tooltip
+                formatter={(v, name) => [formatFCFA(Number(v)), name === "cumulative" ? "Cumulé" : "Collecté"]}
+                contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
+              />
+              <Bar dataKey="amount" fill="#c7d2fe" radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Line type="monotone" dataKey="cumulative" stroke="#4338ca" strokeWidth={2.5} dot={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
         )}
       </div>
 

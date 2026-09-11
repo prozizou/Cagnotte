@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, Plus, ShieldCheck, Receipt, Wallet, UserPlus } from "lucide-react";
@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePendingUsersCount } from "@/hooks/usePendingUsersCount";
 import { useCagnottes } from "@/hooks/useCagnottes";
 import { Logo } from "@/components/ui/Logo";
-import { NAV_ITEMS, NavItem } from "./nav";
+import { NAV_ITEMS } from "./nav";
 import toast from "react-hot-toast";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -19,21 +19,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pendingCount = usePendingUsersCount();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const items = NAV_ITEMS.filter(
-    (item) => (!item.superAdminOnly || isSuperAdmin) && !(isSuperAdmin && item.hiddenForSuperAdmin)
-  );
-
-  // La barre de navigation basse (mobile) ne peut afficher que 5 entrées :
-  // pour un utilisateur standard (6 entrées au total), on choisit une
-  // sélection fixe plutôt qu'une simple troncature. Pour le Super Admin,
-  // il ne reste que 2 entrées (Cotisations, Utilisateurs) : elles tiennent
-  // déjà toutes, pas besoin de curation.
-  const bottomItems = useMemo(() => {
-    if (isSuperAdmin) return items;
-    const byHref = new Map(items.map((i) => [i.href, i]));
-    const hrefs = ["/dashboard", "/cagnottes", "/cotisations", "/rapports", "/parametres"];
-    return hrefs.map((h) => byHref.get(h)).filter((i): i is NavItem => !!i);
-  }, [items, isSuperAdmin]);
+  // 5 entrées maximum (4 pour un utilisateur standard, sans "Utilisateurs") :
+  // tiennent directement dans la barre basse mobile, aucune curation requise.
+  const items = NAV_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin);
 
   async function handleSignOut() {
     await signOut();
@@ -145,7 +133,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Navigation basse — mobile */}
         <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface/95 backdrop-blur lg:hidden">
-          {bottomItems.map((item) => {
+          {items.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             const badge = item.href === "/utilisateurs" ? pendingCount : 0;
             return (
