@@ -6,6 +6,7 @@ import {
   History,
   Users,
   Settings,
+  FileJson,
   LucideIcon,
 } from "lucide-react";
 
@@ -27,5 +28,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/rapports", label: "Rapports & Bilan", icon: BarChart3, hiddenForSuperAdmin: true },
   { href: "/historique", label: "Historique", icon: History, hiddenForSuperAdmin: true },
   { href: "/utilisateurs", label: "Utilisateurs", icon: Users, superAdminOnly: true },
+  { href: "/import", label: "Import JSON", icon: FileJson, superAdminOnly: true },
   { href: "/parametres", label: "Paramètres", icon: Settings, hiddenForSuperAdmin: true },
 ];
