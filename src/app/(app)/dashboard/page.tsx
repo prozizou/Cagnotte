@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import { Wallet, CheckCircle2, Coins, Users, Plus, ArrowRight, UserCheck, ShieldCheck, Users as UsersIcon } from "lucide-react";
+import { Wallet, CheckCircle2, TrendingUp, Users, Plus, ArrowRight, UserCheck, ShieldCheck, Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCagnottes } from "@/hooks/useCagnottes";
 import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
@@ -11,6 +11,7 @@ import { KPICard, KPICardSkeleton } from "@/components/ui/KPICard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CagnotteStatusBadge, UserStatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { GoalProgressCard } from "@/components/ui/GoalProgressCard";
 import { formatFCFA, formatPct } from "@/lib/format";
 import { computeCagnotteStats, buildEvolutionSeries, EvolutionPeriod } from "@/lib/stats";
 import { subscribeAllUsers } from "@/lib/data/users";
@@ -59,7 +60,8 @@ export default function DashboardPage() {
     const completed = cagnottes.filter((c) => c.status === "completed").length;
     const total = cotisations.reduce((s, c) => s + (c.amount || 0), 0);
     const uniqueNames = new Set(cotisations.map((c) => c.name.trim().toLowerCase()).filter(Boolean));
-    return { active, completed, total, contributors: uniqueNames.size };
+    const averageAmount = cotisations.length > 0 ? total / cotisations.length : 0;
+    return { active, completed, total, contributors: uniqueNames.size, averageAmount };
   }, [cagnottes, cotisations]);
 
   const goalStats = useMemo(() => {
@@ -69,17 +71,25 @@ export default function DashboardPage() {
 
   const evolutionData = useMemo(() => buildEvolutionSeries(cotisations, period), [cotisations, period]);
 
-  const chartData = useMemo(() => {
-    const byId = new Map(cagnottes.map((c) => [c.id, { title: c.title, total: 0 }]));
+  // Classement des cagnottes par montant collecté — base commune pour le
+  // classement compact (peu de cagnottes) et l'histogramme (plusieurs
+  // cagnottes) ci-dessous.
+  const rankedCagnottes = useMemo(() => {
+    const byId = new Map(cagnottes.map((c) => [c.id, { id: c.id, title: c.title, goalAmount: c.goalAmount || 0, total: 0 }]));
     for (const c of cotisations) {
       const entry = byId.get(c.cagnotteId);
       if (entry) entry.total += c.amount || 0;
     }
-    return Array.from(byId.values())
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 6)
-      .map((e) => ({ name: e.title.length > 14 ? e.title.slice(0, 13) + "…" : e.title, total: e.total }));
+    return Array.from(byId.values()).sort((a, b) => b.total - a.total);
   }, [cagnottes, cotisations]);
+
+  const chartData = useMemo(
+    () =>
+      rankedCagnottes
+        .slice(0, 6)
+        .map((e) => ({ name: e.title.length > 14 ? e.title.slice(0, 13) + "…" : e.title, total: e.total })),
+    [rankedCagnottes]
+  );
 
   const loading = loadingCagnottes || loadingCotisations;
 
@@ -97,7 +107,7 @@ export default function DashboardPage() {
             Bonjour {profile?.displayName?.split(" ")[0] || ""} 👋
           </h1>
           <p className="text-sm text-muted">
-            {isSuperAdmin ? "Vue d'ensemble de toute la plateforme." : "Voici un aperçu de vos cagnottes."}
+            {isSuperAdmin ? "Voici l'état de la plateforme aujourd'hui." : "Voici l'état de vos cagnottes aujourd'hui."}
           </p>
         </div>
         <Link
@@ -127,42 +137,7 @@ export default function DashboardPage() {
       {loading ? (
         <div className="skeleton h-28 w-full rounded-2xl" />
       ) : (
-        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          {goalStats.goalAmount > 0 ? (
-            <>
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div>
-                  <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(goalStats.totalCollected)}</span>
-                  <span className="ml-1.5 text-sm text-muted">collecté sur {formatFCFA(goalStats.goalAmount)}</span>
-                </div>
-                <span className={`text-sm font-bold ${goalStats.isGoalReached ? "text-success" : "text-primary"}`}>
-                  {formatPct(goalStats.progressPct)}
-                </span>
-              </div>
-              <div className="mt-3">
-                <ProgressBar pct={goalStats.progressPct} goalReached={goalStats.isGoalReached} />
-              </div>
-              <p className="mt-2.5 text-sm">
-                {goalStats.isGoalReached ? (
-                  <span className="font-semibold text-success">🎉 Objectifs atteints — 100 %</span>
-                ) : (
-                  <span className="text-muted">
-                    Reste <span className="font-semibold text-foreground">{formatFCFA(goalStats.remaining)}</span> à
-                    collecter, tous objectifs confondus
-                  </span>
-                )}
-              </p>
-            </>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(goalStats.totalCollected)}</span>
-                <span className="ml-1.5 text-sm text-muted">collecté au total</span>
-              </div>
-              <span className="text-xs text-muted">Aucun objectif défini</span>
-            </div>
-          )}
-        </div>
+        <GoalProgressCard stats={goalStats} label="Objectif global" noGoalLabel="collecté au total" />
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -172,8 +147,8 @@ export default function DashboardPage() {
           <>
             <KPICard icon={Wallet} label="Cagnottes" value={String(cagnottes.length)} tone="primary" />
             <KPICard icon={CheckCircle2} label="Actives" value={String(stats.active)} tone="success" hint={`${stats.completed} terminée(s)`} />
-            <KPICard icon={Coins} label="Total collecté" value={formatFCFA(stats.total)} tone="warning" />
             <KPICard icon={Users} label="Cotisants" value={String(stats.contributors)} />
+            <KPICard icon={TrendingUp} label="Cotisation moyenne" value={formatFCFA(stats.averageAmount)} tone="warning" />
           </>
         )}
       </div>
@@ -202,7 +177,7 @@ export default function DashboardPage() {
         ) : evolutionData.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted">Aucune donnée pour cette période.</p>
         ) : (
-          <ResponsiveContainer width="100%" height={230}>
+          <ResponsiveContainer width="100%" height={200}>
             <ComposedChart data={evolutionData} margin={{ left: -18, right: 8 }}>
               <CartesianGrid vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
@@ -223,11 +198,38 @@ export default function DashboardPage() {
           <h2 className="text-sm font-semibold text-foreground">Cagnottes les plus collectées</h2>
         </div>
         {loading ? (
-          <div className="skeleton h-56 w-full" />
-        ) : chartData.length === 0 ? (
+          <div className="skeleton h-40 w-full" />
+        ) : rankedCagnottes.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted">Aucune donnée pour le moment.</p>
+        ) : rankedCagnottes.length <= 3 ? (
+          // Avec peu de cagnottes, un histogramme apporte peu d'information
+          // (souvent une seule grande barre presque vide) et tronque les
+          // titres longs sur l'axe — un classement compact est plus lisible.
+          // Le graphique reprend automatiquement le dessus dès qu'il y a
+          // suffisamment de cagnottes à comparer.
+          <div className="space-y-4">
+            {rankedCagnottes.map((c) => {
+              const pct = c.goalAmount > 0 ? Math.min(100, (c.total / c.goalAmount) * 100) : 0;
+              return (
+                <div key={c.id}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">{c.title}</p>
+                    <p className="flex-shrink-0 text-sm font-bold tabular-nums text-foreground">{formatFCFA(c.total)}</p>
+                  </div>
+                  {c.goalAmount > 0 && (
+                    <>
+                      <div className="mt-1.5">
+                        <ProgressBar pct={pct} size="sm" />
+                      </div>
+                      <p className="mt-1 text-xs text-muted">{formatPct(pct)} de l&apos;objectif</p>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          <ResponsiveContainer width="100%" height={230}>
+          <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData} margin={{ left: -18, right: 8 }}>
               <CartesianGrid vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
@@ -254,33 +256,44 @@ export default function DashboardPage() {
             <EmptyState icon={UsersIcon} title="Aucun utilisateur" description="Personne ne s'est encore connecté à l'application." />
           ) : (
             <div className="space-y-2">
-              {users.slice(0, 8).map((u) => (
-                <Link
-                  key={u.uid}
-                  href={`/utilisateurs/${u.uid}`}
-                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3.5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
-                >
-                  {u.photoURL ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={u.photoURL} alt="" className="h-9 w-9 flex-shrink-0 rounded-full" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
-                      {u.displayName?.[0]?.toUpperCase() || "U"}
+              {users.slice(0, 8).map((u) => {
+                const count = cagnotteCountByOwner.get(u.uid) || 0;
+                return (
+                  <Link
+                    key={u.uid}
+                    href={`/utilisateurs/${u.uid}`}
+                    className="block rounded-2xl border border-line bg-surface p-3.5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-3">
+                      {u.photoURL ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={u.photoURL} alt="" className="h-10 w-10 flex-shrink-0 rounded-full" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
+                          {u.displayName?.[0]?.toUpperCase() || "U"}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">{u.displayName}</p>
+                        <p className="truncate text-xs text-muted">{u.email}</p>
+                      </div>
                     </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="truncate text-sm font-semibold text-foreground">{u.displayName}</p>
-                      {u.role === "superadmin" && <ShieldCheck size={13} className="flex-shrink-0 text-primary" />}
+                    <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-line pt-2.5">
+                      <span className="text-xs text-muted">
+                        {count} cagnotte{count > 1 ? "s" : ""}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {u.role === "superadmin" && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">
+                            <ShieldCheck size={11} /> Propriétaire
+                          </span>
+                        )}
+                        <UserStatusBadge status={u.status} />
+                      </div>
                     </div>
-                    <p className="truncate text-xs text-muted">{u.email}</p>
-                  </div>
-                  <span className="flex-shrink-0 text-xs text-muted">
-                    {cagnotteCountByOwner.get(u.uid) || 0} cagnotte{(cagnotteCountByOwner.get(u.uid) || 0) > 1 ? "s" : ""}
-                  </span>
-                  <UserStatusBadge status={u.status} />
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@
 // donc plus de variante "avec/sans texte" : seule la taille d'affichage
 // varie selon le contexte (barre latérale, en-tête mobile, écrans de
 // connexion...).
-export function Logo({ size = 34 }: { size?: number }) {
+export function Logo({ size = 44 }: { size?: number }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img src="/logo.png" alt="CagnottePro" width={size} height={size} className="flex-shrink-0 rounded-full" />

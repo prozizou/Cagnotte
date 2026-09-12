@@ -26,13 +26,13 @@ import { subscribeCotisations, addCotisation, updateCotisation, deleteCotisation
 import { Cagnotte, Cotisation } from "@/lib/types";
 import { computeCagnotteStats } from "@/lib/stats";
 import { KPICard } from "@/components/ui/KPICard";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+import { GoalProgressCard } from "@/components/ui/GoalProgressCard";
 import { CagnotteStatusBadge } from "@/components/ui/StatusBadge";
 import { ContactsList } from "@/components/cagnottes/ContactsList";
 import { CotisationsTable } from "@/components/cotisations/CotisationsTable";
 import { CotisationFormModal } from "@/components/cotisations/CotisationFormModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { formatFCFA, formatPct, formatDate } from "@/lib/format";
+import { formatFCFA, formatDate } from "@/lib/format";
 import { buildGroupShareMessage, whatsAppShareUrl } from "@/lib/whatsapp";
 import { CAGNOTTE_STATUS_LABELS } from "@/lib/constants";
 
@@ -238,44 +238,7 @@ export default function CagnotteDetailPage() {
       </div>
 
       {/* Objectif & progression */}
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-        {cagnotte.goalAmount > 0 ? (
-          <>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <div>
-                <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(stats.totalCollected)}</span>
-                <span className="ml-1.5 text-sm text-muted">collecté sur {formatFCFA(stats.goalAmount)}</span>
-              </div>
-              <span className={`text-sm font-bold ${stats.isGoalReached ? "text-success" : "text-primary"}`}>
-                {formatPct(stats.progressPct)}
-              </span>
-            </div>
-            <div className="mt-3">
-              <ProgressBar pct={stats.progressPct} goalReached={stats.isGoalReached} />
-            </div>
-            <p className="mt-2.5 text-sm">
-              {stats.isGoalReached ? (
-                <span className="font-semibold text-success">
-                  🎉 Objectif atteint — 100 %{stats.surplus > 0 && ` · Excédent : +${formatFCFA(stats.surplus)}`}
-                </span>
-              ) : (
-                <span className="text-muted">
-                  Reste <span className="font-semibold text-foreground">{formatFCFA(stats.remaining)}</span> (
-                  {formatPct(100 - stats.progressPct)} restants)
-                </span>
-              )}
-            </p>
-          </>
-        ) : (
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(stats.totalCollected)}</span>
-              <span className="ml-1.5 text-sm text-muted">collecté</span>
-            </div>
-            <span className="text-xs text-muted">Aucun objectif défini</span>
-          </div>
-        )}
-      </div>
+      <GoalProgressCard stats={stats} />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

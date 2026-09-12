@@ -7,14 +7,14 @@ export function ProgressBar({
 }: {
   pct: number;
   goalReached?: boolean;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 }) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <div
       className={clsx(
         "w-full overflow-hidden rounded-full bg-muted-soft",
-        size === "sm" ? "h-1.5" : "h-2.5"
+        size === "sm" ? "h-1.5" : size === "lg" ? "h-3.5" : "h-2.5"
       )}
       role="progressbar"
       aria-valuenow={Math.round(clamped)}

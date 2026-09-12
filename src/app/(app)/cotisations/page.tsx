@@ -8,9 +8,9 @@ import { useCagnottes } from "@/hooks/useCagnottes";
 import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { KPICard, KPICardSkeleton } from "@/components/ui/KPICard";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+import { GoalProgressCard } from "@/components/ui/GoalProgressCard";
 import { computeCagnotteStats } from "@/lib/stats";
-import { formatFCFA, formatPct, formatDate } from "@/lib/format";
+import { formatFCFA, formatDate } from "@/lib/format";
 import { PAGE_SIZE_COTISATIONS } from "@/lib/constants";
 
 export default function CotisationsGlobalPage() {
@@ -65,44 +65,7 @@ export default function CotisationsGlobalPage() {
       {loading ? (
         <div className="skeleton h-28 w-full rounded-2xl" />
       ) : (
-        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          {scopedGoalAmount > 0 ? (
-            <>
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div>
-                  <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(stats.totalCollected)}</span>
-                  <span className="ml-1.5 text-sm text-muted">collecté sur {formatFCFA(stats.goalAmount)}</span>
-                </div>
-                <span className={`text-sm font-bold ${stats.isGoalReached ? "text-success" : "text-primary"}`}>
-                  {formatPct(stats.progressPct)}
-                </span>
-              </div>
-              <div className="mt-3">
-                <ProgressBar pct={stats.progressPct} goalReached={stats.isGoalReached} />
-              </div>
-              <p className="mt-2.5 text-sm">
-                {stats.isGoalReached ? (
-                  <span className="font-semibold text-success">
-                    🎉 Objectif atteint — 100 %{stats.surplus > 0 && ` · Excédent : +${formatFCFA(stats.surplus)}`}
-                  </span>
-                ) : (
-                  <span className="text-muted">
-                    Reste <span className="font-semibold text-foreground">{formatFCFA(stats.remaining)}</span> (
-                    {formatPct(100 - stats.progressPct)} restants)
-                  </span>
-                )}
-              </p>
-            </>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-2xl font-extrabold tabular-nums text-foreground">{formatFCFA(stats.totalCollected)}</span>
-                <span className="ml-1.5 text-sm text-muted">collecté</span>
-              </div>
-              <span className="text-xs text-muted">Aucun objectif défini</span>
-            </div>
-          )}
-        </div>
+        <GoalProgressCard stats={stats} label={selectedCagnotte ? "Objectif" : "Objectif global"} />
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
