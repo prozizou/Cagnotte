@@ -77,7 +77,7 @@ export interface ParsedUserImport {
   cagnottes: UserExportCagnotte[];
   fileOwner: { uid?: string; email?: string } | null;
   entriesSkipped: number;
-  // Le fichier n'était pas un export Cotiz (pas de tableau "cagnottes")
+  // Le fichier n'était pas un export CagnottePro (pas de tableau "cagnottes")
   // mais un tableau/export RTDB plat : une seule cagnotte est proposée,
   // avec un titre à choisir avant import (cagnottes[0].title fait office
   // de valeur par défaut, modifiable).
@@ -108,7 +108,7 @@ export function parseUserExportJSON(raw: string): { result: ParsedUserImport | n
         result: null,
         error:
           flat.errors[0] ||
-          'Format non reconnu : ni un export Cotiz (tableau "cagnottes"), ni un tableau/export de cotisations valide.',
+          'Format non reconnu : ni un export CagnottePro (tableau "cagnottes"), ni un tableau/export de cotisations valide.',
       };
     }
     return {

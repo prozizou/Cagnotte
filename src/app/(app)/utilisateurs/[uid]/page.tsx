@@ -496,7 +496,7 @@ function ImportUserDataModal({
           </button>
         </div>
         <p className="mb-3 text-xs text-muted">
-          Accepte un export Cotiz (plusieurs cagnottes avec leurs cotisations) ou un tableau/export simple (ex.
+          Accepte un export CagnottePro (plusieurs cagnottes avec leurs cotisations) ou un tableau/export simple (ex.
           ancien export Realtime Database) — dans ce second cas, une seule nouvelle cagnotte est créée, avec un
           titre à préciser.
         </p>

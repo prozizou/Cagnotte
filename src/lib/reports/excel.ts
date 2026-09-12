@@ -1,10 +1,11 @@
 import ExcelJS from "exceljs";
 import { Cagnotte, CagnotteStats, Cotisation } from "@/lib/types";
 import { formatDate } from "@/lib/format";
+import { APP_NAME } from "@/lib/constants";
 
 export async function generateBilanExcel(cagnotte: Cagnotte, stats: CagnotteStats, cotisations: Cotisation[]) {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Cotiz";
+  workbook.creator = APP_NAME;
   workbook.created = new Date();
 
   const summary = workbook.addWorksheet("Bilan");
