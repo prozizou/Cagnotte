@@ -15,7 +15,7 @@ import toast from "react-hot-toast";
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isSuperAdmin, signOut } = useAuth();
+  const { profile, isSuperAdmin, signOut } = useAuth();
   const pendingCount = usePendingUsersCount();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -124,7 +124,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </button>
           <Logo size={40} />
-          <QuickAddButton />
+          <div className="flex items-center gap-2">
+            <QuickAddButton />
+            <Link
+              href="/parametres"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-sm font-bold text-primary"
+              aria-label="Mon compte"
+            >
+              {profile?.photoURL ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.photoURL} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                profile?.displayName?.[0]?.toUpperCase() || "U"
+              )}
+            </Link>
+          </div>
         </header>
 
         <main className="flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-6 lg:px-8 lg:pb-6">
@@ -145,10 +159,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                   active ? "text-primary" : "text-muted"
                 )}
               >
-                <span className="relative">
-                  <item.icon size={19} strokeWidth={2.1} />
+                <span
+                  className={clsx(
+                    "relative flex h-7 w-9 items-center justify-center rounded-full transition-colors",
+                    active && "bg-primary-soft"
+                  )}
+                >
+                  <item.icon size={18} strokeWidth={active ? 2.4 : 2.1} />
                   {badge > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-danger text-[8px] font-bold text-white">
+                    <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-danger text-[8px] font-bold text-white">
                       {badge > 9 ? "9+" : badge}
                     </span>
                   )}
