@@ -70,7 +70,7 @@ export default function CagnottesListPage() {
         <div className="relative sm:w-72">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
-            className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             placeholder="Rechercher une cagnotte…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

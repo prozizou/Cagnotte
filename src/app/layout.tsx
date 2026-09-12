@@ -25,6 +25,13 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Zoom navigateur (pincer-zoomer, double-tap) désactivé : l'app est conçue
+  // pour être entièrement responsive (media queries Tailwind sm:/lg: sur
+  // chaque page) plutôt que de compter sur le zoom pour rattraper un élément
+  // trop petit — voir aussi inputClass (Field.tsx), en 16px pour éviter le
+  // zoom automatique de Safari iOS au focus d'un champ.
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   themeColor: "#166534",
 };

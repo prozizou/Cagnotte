@@ -23,5 +23,9 @@ export function Field({
   );
 }
 
+// text-base (16px), pas text-sm : en dessous de 16px, Safari iOS zoome
+// automatiquement la page au focus d'un champ — décision produit "supprimer
+// tout zoom" (voir aussi viewport.maximumScale dans layout.tsx). Toucher ce
+// point unique couvre la quasi-totalité des champs de saisie de l'app.
 export const inputClass =
-  "w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
+  "w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-base text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
