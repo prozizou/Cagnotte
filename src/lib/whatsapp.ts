@@ -39,11 +39,15 @@ export function buildDetailedListMessage(cagnotte: Cagnotte, cotisations: Cotisa
 
 // La liste reçue par buildGroupShareMessage est généralement déjà triée
 // (la fiche cagnotte affiche les cotisations les plus récentes en premier),
-// mais l'annonce de groupe doit lister les dons dans l'ordre où ils sont
-// arrivés (comme sur Firebase, du plus ancien au plus récent) — on retrie
-// donc ici sur createdAt, indépendamment de l'ordre transmis par l'appelant.
-function sortByCreatedAtAsc(list: Cotisation[]): Cotisation[] {
-  return [...list].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+// mais l'annonce de groupe doit lister les dons du plus ancien au plus
+// récent. On trie ici sur le champ "date" (la date de la cotisation,
+// saisie par l'utilisateur — présente sur chaque nœud Firebase), et non sur
+// createdAt : createdAt reflète le moment d'écriture en base, qui n'a rien
+// à voir avec la chronologie réelle des dons pour des cotisations
+// importées ou saisies après coup (toutes écrites à peu près au même
+// moment, sans rapport avec leur date réelle).
+function sortByDateAsc(list: Cotisation[]): Cotisation[] {
+  return [...list].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // Formulation dédiée à l'annonce de groupe (buildGroupShareMessage) :
@@ -93,7 +97,7 @@ export function buildGroupShareMessage(cagnotte: Cagnotte, stats: CagnotteStats,
   if (cotisations.length === 0) {
     lines.push("_Aucune cotisation enregistrée._");
   } else {
-    sortByCreatedAtAsc(cotisations).forEach((c, i) => {
+    sortByDateAsc(cotisations).forEach((c, i) => {
       lines.push(`${i + 1} - ${c.name} : ${formatFCFA(c.amount)}`);
     });
   }
