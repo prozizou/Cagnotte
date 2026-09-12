@@ -8,7 +8,6 @@ import {
   Pencil,
   Plus,
   Share2,
-  Send,
   BarChart3,
   Target,
   Users,
@@ -34,7 +33,7 @@ import { CotisationsTable } from "@/components/cotisations/CotisationsTable";
 import { CotisationFormModal } from "@/components/cotisations/CotisationFormModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatFCFA, formatPct, formatDate } from "@/lib/format";
-import { buildFullBilanMessage, buildGroupShareMessage, whatsAppShareUrl } from "@/lib/whatsapp";
+import { buildGroupShareMessage, whatsAppShareUrl } from "@/lib/whatsapp";
 import { CAGNOTTE_STATUS_LABELS } from "@/lib/constants";
 
 export default function CagnotteDetailPage() {
@@ -47,6 +46,13 @@ export default function CagnotteDetailPage() {
   const [editing, setEditing] = useState<Cotisation | null>(null);
   const [toDelete, setToDelete] = useState<Cotisation | null>(null);
   const [confirmDeleteCagnotte, setConfirmDeleteCagnotte] = useState(false);
+  // Image de couverture pré-téléchargée en fichier, prête à être partagée.
+  // Indispensable pour le partage natif (voir handleShare) : on la charge
+  // AVANT le clic pour ne pas avoir à attendre un fetch pendant le clic —
+  // sur mobile, tout `await` avant navigator.share() « périme » le geste
+  // tactile et fait échouer le partage du fichier (WhatsApp ne recevait
+  // alors que le texte).
+  const [shareImageFile, setShareImageFile] = useState<File | null>(null);
 
   useEffect(() => subscribeCagnotte(id, setCagnotte), [id]);
   useEffect(
@@ -56,6 +62,33 @@ export default function CagnotteDetailPage() {
       ),
     [id]
   );
+
+  // Pré-télécharge l'image de couverture en fichier dès qu'elle est connue,
+  // pour que le partage WhatsApp (handleShare) puisse appeler navigator.share()
+  // immédiatement au clic, sans fetch intermédiaire (cf. shareImageFile).
+  useEffect(() => {
+    const url = cagnotte?.imageUrl;
+    if (!url) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShareImageFile(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        if (cancelled) return;
+        setShareImageFile(new File([blob], "cagnotte.jpg", { type: blob.type || "image/jpeg" }));
+      } catch {
+        // Image non pré-chargée (réseau) : le partage se rabattra sur le texte.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cagnotte?.imageUrl]);
 
   // Ouvre directement le formulaire d'ajout quand on arrive depuis le menu
   // "+" global (Nouvelle cotisation → choix de la cagnotte → ?add=1).
@@ -118,62 +151,45 @@ export default function CagnotteDetailPage() {
     router.push("/cagnottes");
   }
 
-  // Partage WhatsApp générique (image de couverture + texte). On ne tente le
-  // partage natif (image en pièce jointe + texte en légende — le rendu
-  // "affiche" dans WhatsApp) que si le navigateur sait réellement partager
-  // des fichiers. On le vérifie avec un fichier factice AVANT de télécharger
-  // la vraie image : sur un navigateur qui ne supporte pas le partage de
-  // fichiers (ex. certaines WebView Android/iOS intégrées à d'autres apps),
-  // ça évite un aller-retour réseau inutile qui, une fois échoué, arrivait
-  // trop tard pour que le repli ci-dessous soit encore rattaché au geste de
-  // l'utilisateur (d'où le "rien ne se passe" observé sur téléphone).
-  async function shareToWhatsApp(imageUrl: string | null, message: string) {
-    const canShareFiles =
-      !!imageUrl &&
-      typeof navigator !== "undefined" &&
-      !!navigator.share &&
-      !!navigator.canShare &&
-      navigator.canShare({ files: [new File([], "cagnotte.jpg", { type: "image/jpeg" })] });
+  // Partage du bilan dans un groupe WhatsApp : l'image de couverture ET le
+  // texte complet (titre, statut, numéros, bilan, liste des dons) partis
+  // ENSEMBLE, sur le modèle de l'annonce que l'utilisateur composait à la
+  // main. Le seul moyen web d'attacher une image + une légende à WhatsApp
+  // est l'API Web Share avec fichier ; on l'appelle donc en priorité, et —
+  // point crucial — sans aucun `await` préalable : l'image est déjà prête
+  // (shareImageFile, pré-téléchargée), sinon navigator.share() est refusé
+  // par le navigateur mobile faute de geste utilisateur « frais » et seul
+  // le texte partait (bug observé).
+  async function handleShare() {
+    if (!cagnotte) return;
+    const message = buildGroupShareMessage(cagnotte, stats, cotisations);
 
-    if (canShareFiles) {
+    if (
+      shareImageFile &&
+      typeof navigator !== "undefined" &&
+      navigator.share &&
+      navigator.canShare &&
+      navigator.canShare({ files: [shareImageFile] })
+    ) {
       try {
-        const response = await fetch(imageUrl as string);
-        if (!response.ok) throw new Error("Échec du téléchargement de l'image.");
-        const blob = await response.blob();
-        const file = new File([blob], "cagnotte.jpg", { type: blob.type || "image/jpeg" });
-        await navigator.share({ files: [file], text: message });
+        await navigator.share({ files: [shareImageFile], text: message });
         return;
       } catch (err) {
-        if ((err as { name?: string })?.name === "AbortError") return; // partage annulé par l'utilisateur
-        // sinon : échec (réseau, image indisponible…), on retombe sur le repli ci-dessous
+        if ((err as { name?: string })?.name === "AbortError") return; // annulé par l'utilisateur
+        toast.error("Le partage avec l'image a échoué, envoi du texte seul.");
       }
-    }
-
-    // Repli : WhatsApp (via wa.me) ne permet d'envoyer que du texte, jamais
-    // une image en pièce jointe. Comme le partage natif ci-dessus n'a pas pu
-    // aboutir, on ouvre en plus la photo de couverture dans un nouvel onglet
-    // pour que l'utilisateur puisse l'enregistrer et la joindre lui-même au
-    // message WhatsApp qui s'ouvre juste après.
-    if (imageUrl) {
-      window.open(imageUrl, "_blank", "noopener");
-      toast("Photo ouverte dans un nouvel onglet : enregistrez-la puis joignez-la à votre message WhatsApp.", {
+    } else if (cagnotte.imageUrl) {
+      // Navigateur sans partage de fichier (ex. ordinateur, WebView limitée) :
+      // WhatsApp via un lien ne peut pas transporter d'image. On ouvre alors
+      // la photo à part pour que l'utilisateur puisse la joindre lui-même.
+      window.open(cagnotte.imageUrl, "_blank", "noopener");
+      toast("Sur cet appareil l'image ne peut pas être jointe automatiquement : enregistrez-la puis ajoutez-la à votre message.", {
         icon: "📎",
+        duration: 6000,
       });
     }
+
     window.open(whatsAppShareUrl(message), "_blank", "noopener");
-  }
-
-  async function handleShareBilan() {
-    if (!cagnotte) return;
-    await shareToWhatsApp(cagnotte.imageUrl, buildFullBilanMessage(cagnotte, stats, cotisations));
-  }
-
-  // "Envoyer dans le groupe" : une annonce complète prête à coller dans un
-  // groupe WhatsApp (image + titre + statut + numéros de contact + bilan +
-  // liste nominative des dons), en un seul partage.
-  async function handleShareGroup() {
-    if (!cagnotte) return;
-    await shareToWhatsApp(cagnotte.imageUrl, buildGroupShareMessage(cagnotte, stats, cotisations));
   }
 
   return (
@@ -206,16 +222,10 @@ export default function CagnotteDetailPage() {
             <BarChart3 size={15} /> Rapport
           </Link>
           <button
-            onClick={handleShareBilan}
+            onClick={handleShare}
             className="flex items-center gap-1.5 rounded-xl bg-whatsapp px-3.5 py-2 text-sm font-semibold text-white hover:bg-whatsapp-dark"
           >
             <Share2 size={15} /> Partager le bilan
-          </button>
-          <button
-            onClick={handleShareGroup}
-            className="flex items-center gap-1.5 rounded-xl border border-whatsapp px-3.5 py-2 text-sm font-semibold text-whatsapp hover:bg-whatsapp/10"
-          >
-            <Send size={15} /> Envoyer dans le groupe
           </button>
           <Link
             href={`/cagnottes/${id}/edit`}
