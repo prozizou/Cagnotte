@@ -117,9 +117,30 @@ export default function CagnotteDetailPage() {
     router.push("/cagnottes");
   }
 
-  function handleShareBilan() {
+  async function handleShareBilan() {
     if (!cagnotte) return;
     const msg = buildBilanMessage(cagnotte, stats);
+
+    // Quand une image de couverture existe et que le navigateur sait
+    // partager des fichiers (API Web Share, surtout mobile), on partage
+    // l'image + la légende — c'est ce qui donne le rendu "affiche" dans
+    // WhatsApp (image en pièce jointe, texte en légende dessous). Sinon,
+    // repli sur le lien wa.me classique (texte seul).
+    if (cagnotte.imageUrl && typeof navigator !== "undefined" && navigator.share && navigator.canShare) {
+      try {
+        const response = await fetch(cagnotte.imageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], "cagnotte.jpg", { type: blob.type || "image/jpeg" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], text: msg });
+          return;
+        }
+      } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return; // partage annulé par l'utilisateur
+        // sinon : échec silencieux (réseau, CORS…), on retombe sur le texte seul ci-dessous
+      }
+    }
+
     window.open(whatsAppShareUrl(msg), "_blank", "noopener");
   }
 
@@ -128,6 +149,11 @@ export default function CagnotteDetailPage() {
       <Link href="/cagnottes" className="flex items-center gap-1 text-sm text-muted hover:text-foreground">
         <ChevronLeft size={16} /> Mes cagnottes
       </Link>
+
+      {cagnotte.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={cagnotte.imageUrl} alt="" className="h-48 w-full rounded-2xl object-cover sm:h-64" />
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">

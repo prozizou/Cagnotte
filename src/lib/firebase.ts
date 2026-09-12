@@ -9,6 +9,7 @@ import {
   type Auth,
 } from "firebase/auth";
 import { getDatabase, type Database } from "firebase/database";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -33,6 +34,7 @@ const firebaseConfig = {
 let app = {} as FirebaseApp;
 let auth = {} as Auth;
 let db = {} as Database;
+let storage = {} as FirebaseStorage;
 // Conservé uniquement pour la page ponctuelle de migration des anciennes
 // données Firestore vers Realtime Database (/migration-rtdb) — à retirer,
 // avec cette page, une fois la migration effectuée.
@@ -42,6 +44,7 @@ if (typeof window !== "undefined") {
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getDatabase(app);
+  storage = getStorage(app);
   firestoreDb = getFirestore(app);
 
   // Persistance locale : un utilisateur déjà connecté reste connecté après
@@ -53,7 +56,7 @@ if (typeof window !== "undefined") {
   });
 }
 
-export { app, auth, db, firestoreDb };
+export { app, auth, db, storage, firestoreDb };
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });

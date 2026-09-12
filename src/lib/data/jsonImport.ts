@@ -164,6 +164,7 @@ export async function createCagnotteForImport(
     goalAmount: input.goalAmount,
     status: input.status || "active",
     contacts: [],
+    imageUrl: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

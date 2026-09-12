@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Plus, Trash2, ImagePlus, X } from "lucide-react";
 import { Field, inputClass } from "@/components/ui/Field";
 import { Cagnotte, CagnotteStatus, Contact } from "@/lib/types";
-import { CagnotteFormInput } from "@/lib/data/cagnottes";
+import { CagnotteFormInput, uploadCagnotteImage } from "@/lib/data/cagnottes";
 import { CAGNOTTE_STATUS_LABELS } from "@/lib/constants";
 import { todayISO } from "@/lib/format";
 
@@ -14,11 +14,17 @@ function newContact(): Contact {
 
 export function CagnotteForm({
   initial,
+  ownerId,
   onSubmit,
   submitLabel = "Créer la cagnotte",
   submitting,
 }: {
   initial?: Cagnotte;
+  // Propriétaire réel de la cagnotte (soi-même à la création ; le
+  // propriétaire déjà enregistré en édition, y compris quand le Super
+  // Admin modifie la cagnotte d'un autre compte) — détermine le chemin
+  // Storage de l'image, vérifié par les règles de sécurité.
+  ownerId: string;
   onSubmit: (input: CagnotteFormInput) => void | Promise<void>;
   submitLabel?: string;
   submitting?: boolean;
@@ -30,7 +36,26 @@ export function CagnotteForm({
   const [goalAmount, setGoalAmount] = useState(initial?.goalAmount ? String(initial.goalAmount) : "");
   const [status, setStatus] = useState<CagnotteStatus>(initial?.status || "active");
   const [contacts, setContacts] = useState<Contact[]>(initial?.contacts?.length ? initial.contacts : [newContact()]);
+  const [imageUrl, setImageUrl] = useState<string | null>(initial?.imageUrl || null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(initial?.imageUrl || null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
+
+  function handlePickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function handleRemoveImage() {
+    setImageFile(null);
+    setImagePreview(null);
+    setImageUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   function updateContact(id: string, patch: Partial<Contact>) {
     setContacts((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -48,6 +73,18 @@ export function CagnotteForm({
       .map((c) => ({ ...c, name: c.name.trim(), phone: c.phone.trim() }))
       .filter((c) => c.name || c.phone);
 
+    let finalImageUrl = imageUrl;
+    if (imageFile) {
+      setUploadingImage(true);
+      try {
+        finalImageUrl = await uploadCagnotteImage(ownerId, imageFile);
+      } catch (err) {
+        setUploadingImage(false);
+        return setError(err instanceof Error ? err.message : "Échec de l'envoi de l'image.");
+      }
+      setUploadingImage(false);
+    }
+
     await onSubmit({
       title: title.trim(),
       description: description.trim(),
@@ -56,6 +93,7 @@ export function CagnotteForm({
       goalAmount: Number(goalAmount) || 0,
       contacts: cleanContacts,
       status,
+      imageUrl: finalImageUrl,
     });
   }
 
@@ -79,6 +117,32 @@ export function CagnotteForm({
           onChange={(e) => setDescription(e.target.value)}
           maxLength={500}
         />
+      </Field>
+
+      <Field
+        label="Image de couverture"
+        hint="Affichée sur la cagnotte et incluse dans le bilan partagé sur WhatsApp (image + légende). Facultatif."
+      >
+        {imagePreview ? (
+          <div className="relative overflow-hidden rounded-xl border border-line">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imagePreview} alt="" className="h-40 w-full object-cover" />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/70 text-white hover:bg-slate-900"
+              aria-label="Retirer l'image"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <label className="flex h-32 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line bg-muted-soft text-muted hover:border-primary/40 hover:text-foreground">
+            <ImagePlus size={20} />
+            <span className="text-xs font-medium">Ajouter une image</span>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePickImage} />
+          </label>
+        )}
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
@@ -160,10 +224,10 @@ export function CagnotteForm({
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || uploadingImage}
         className="flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60 sm:w-auto sm:px-8"
       >
-        {submitting ? "Enregistrement…" : submitLabel}
+        {uploadingImage ? "Envoi de l'image…" : submitting ? "Enregistrement…" : submitLabel}
       </button>
     </form>
   );

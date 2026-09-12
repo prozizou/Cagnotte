@@ -38,7 +38,7 @@ export default function NewCagnottePage() {
         <p className="text-sm text-muted">Renseignez les informations de votre nouvelle collecte.</p>
       </div>
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
-        <CagnotteForm onSubmit={handleSubmit} submitting={submitting} submitLabel="Créer la cagnotte" />
+        <CagnotteForm ownerId={firebaseUser?.uid || ""} onSubmit={handleSubmit} submitting={submitting} submitLabel="Créer la cagnotte" />
       </div>
     </div>
   );

@@ -124,28 +124,34 @@ export default function CagnottesListPage() {
               <Link
                 key={c.id}
                 href={`/cagnottes/${c.id}`}
-                className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition hover:border-primary/40 hover:shadow-md"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
-                  <CagnotteStatusBadge status={c.status} />
-                </div>
-                {isSuperAdmin && c.ownerName && (
-                  <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{c.ownerName}</p>
+                {c.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={c.imageUrl} alt="" className="h-28 w-full object-cover" />
                 )}
-                <p className="mt-1 line-clamp-1 text-xs text-muted">{c.description || "—"}</p>
-                <p className="mt-3 text-sm font-bold text-foreground">
-                  {formatFCFA(total)}
-                  {c.goalAmount > 0 && <span className="ml-1 text-xs font-normal text-muted">/ {formatFCFA(c.goalAmount)}</span>}
-                </p>
-                {c.goalAmount > 0 && (
-                  <div className="mt-2">
-                    <ProgressBar pct={pct} size="sm" />
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
+                    <CagnotteStatusBadge status={c.status} />
                   </div>
-                )}
-                <p className="mt-3 text-[11px] text-muted">
-                  {formatDate(c.startDate)} → {c.endDate ? formatDate(c.endDate) : "indéterminée"}
-                </p>
+                  {isSuperAdmin && c.ownerName && (
+                    <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{c.ownerName}</p>
+                  )}
+                  <p className="mt-1 line-clamp-1 text-xs text-muted">{c.description || "—"}</p>
+                  <p className="mt-3 text-sm font-bold text-foreground">
+                    {formatFCFA(total)}
+                    {c.goalAmount > 0 && <span className="ml-1 text-xs font-normal text-muted">/ {formatFCFA(c.goalAmount)}</span>}
+                  </p>
+                  {c.goalAmount > 0 && (
+                    <div className="mt-2">
+                      <ProgressBar pct={pct} size="sm" />
+                    </div>
+                  )}
+                  <p className="mt-3 text-[11px] text-muted">
+                    {formatDate(c.startDate)} → {c.endDate ? formatDate(c.endDate) : "indéterminée"}
+                  </p>
+                </div>
               </Link>
             );
           })}

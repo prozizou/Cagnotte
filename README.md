@@ -32,7 +32,10 @@ c'est la même base que l'ancienne page), réutilisez ce même projet.
    données** (mode verrouillé — les règles ci-dessous seront déployées
    ensuite). Notez son **URL** affichée en haut de la page (ex.
    `https://<projet>-default-rtdb.<région>.firebasedatabase.app`).
-4. **Paramètres du projet** → Vos applications → si une application Web
+4. **Storage** → si ce n'est pas déjà fait, **Commencer** (mode production —
+   les règles `storage.rules` seront déployées à l'étape 4bis). Utilisé
+   uniquement pour les images de couverture des cagnottes.
+5. **Paramètres du projet** → Vos applications → si une application Web
    existe déjà (c'était le cas pour l'ancienne page), réutilisez sa
    configuration ; sinon ajoutez-en une et copiez la configuration.
 
@@ -77,6 +80,16 @@ dans Console Firebase → Realtime Database → onglet **Règles**.
 ⚠️ Sans ces règles, la base de données reste protégée par les règles par
 défaut de votre projet (généralement tout refusé) — l'application ne
 fonctionnera pas tant qu'elles ne sont pas déployées.
+
+## 4bis. Déployer les règles de sécurité Storage (images de couverture)
+
+```bash
+firebase deploy --only storage
+```
+
+Ou collez le contenu de `storage.rules` dans Console Firebase → Storage →
+onglet **Règles**. Sans elles, l'envoi d'une image de couverture échouera
+(le reste de l'application continue de fonctionner normalement).
 
 ## 5. Lancer en développement
 
