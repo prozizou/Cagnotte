@@ -16,17 +16,30 @@ import {
   Coins,
   Users,
   History as HistoryIconLucide,
+  Download,
+  Upload,
+  FileJson,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { subscribeUserProfile, approveUser, rejectUser, suspendUser, reactivateUser, revokeUser, deleteUserProfile } from "@/lib/data/users";
 import { subscribeUserCagnottes, deleteCagnotte } from "@/lib/data/cagnottes";
 import { subscribeHistoryForOwner } from "@/lib/data/history";
+import {
+  buildUserExport,
+  downloadJSON,
+  parseUserExportJSON,
+  importUserExport,
+  ParsedUserImport,
+} from "@/lib/data/userDataTransfer";
 import { UserProfile, Cagnotte, HistoryEntry } from "@/lib/types";
 import { UserStatusBadge, CagnotteStatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { KPICard } from "@/components/ui/KPICard";
+import { inputClass } from "@/components/ui/Field";
 import { HistoryIcon } from "@/components/history/HistoryIcon";
 import { formatFCFA, formatDateTime } from "@/lib/format";
 import { useOwnerCotisationsFor } from "@/hooks/useOwnerCotisationsFor";
@@ -41,6 +54,7 @@ export default function UserDetailPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [pendingAction, setPendingAction] = useState<"reject" | "suspend" | "revoke" | "delete" | null>(null);
   const [cagnotteToDelete, setCagnotteToDelete] = useState<Cagnotte | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     if (currentProfile && !isSuperAdmin) router.replace("/dashboard");
@@ -110,6 +124,19 @@ export default function UserDetailPage() {
     } finally {
       setCagnotteToDelete(null);
     }
+  }
+
+  function handleExport() {
+    if (!target) return;
+    const data = buildUserExport(target, cagnottes, cotisations);
+    const slug = (target.displayName || target.email || target.uid)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+    downloadJSON(`cotiz-${slug || target.uid}.json`, data);
+    toast.success("Export téléchargé ✔");
   }
 
   if (!isSuperAdmin) return null;
@@ -192,6 +219,34 @@ export default function UserDetailPage() {
         <KPICard icon={Wallet} label="Cagnottes" value={String(cagnottes.length)} tone="primary" />
         <KPICard icon={Coins} label="Total collecté" value={formatFCFA(stats.total)} tone="success" />
         <KPICard icon={Users} label="Cotisants" value={String(stats.contributors)} />
+      </div>
+
+      {/* Export / import des données de ce compte */}
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <div className="mb-1 flex items-center gap-2">
+          <FileJson size={16} className="text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Données (JSON)</h2>
+        </div>
+        <p className="mb-3 text-xs text-muted">
+          Le fichier exporté est identifié par le nom, l&apos;uid et l&apos;email de ce compte — un import se fait
+          toujours sur la fiche actuellement ouverte, jamais sur un autre compte, pour ne jamais mélanger les
+          données de deux personnes.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleExport}
+            disabled={cagnottes.length === 0}
+            className="flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-foreground hover:bg-muted-soft disabled:opacity-50"
+          >
+            <Download size={15} /> Exporter (JSON)
+          </button>
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-foreground hover:bg-muted-soft"
+          >
+            <Upload size={15} /> Importer un fichier
+          </button>
+        </div>
       </div>
 
       {/* Cagnottes de cet utilisateur */}
@@ -328,6 +383,188 @@ export default function UserDetailPage() {
         confirmLabel="Supprimer"
         onCancel={() => setCagnotteToDelete(null)}
         onConfirm={handleDeleteCagnotte}
+      />
+
+      <ImportUserDataModal open={importOpen} target={target} actor={actor} onClose={() => setImportOpen(false)} />
+    </div>
+  );
+}
+
+function ImportUserDataModal({
+  open,
+  target,
+  actor,
+  onClose,
+}: {
+  open: boolean;
+  target: UserProfile;
+  actor: { uid: string; name: string } | null;
+  onClose: () => void;
+}) {
+  const [rawJson, setRawJson] = useState("");
+  const [parsed, setParsed] = useState<ParsedUserImport | null>(null);
+  const [error, setError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [confirmMismatch, setConfirmMismatch] = useState(false);
+
+  if (!open) return null;
+
+  function reset() {
+    setRawJson("");
+    setParsed(null);
+    setError("");
+    setConfirmMismatch(false);
+  }
+
+  function handleClose() {
+    reset();
+    onClose();
+  }
+
+  function handleAnalyze() {
+    if (!rawJson.trim()) {
+      toast.error("Collez ou importez d'abord du JSON.");
+      return;
+    }
+    const { result, error: parseError } = parseUserExportJSON(rawJson);
+    setError(parseError || "");
+    setParsed(result);
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      setRawJson(text);
+      const { result, error: parseError } = parseUserExportJSON(text);
+      setError(parseError || "");
+      setParsed(result);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  const ownerMismatch =
+    parsed?.fileOwner && (parsed.fileOwner.uid || parsed.fileOwner.email)
+      ? parsed.fileOwner.uid !== target.uid && parsed.fileOwner.email?.toLowerCase() !== target.email.toLowerCase()
+      : false;
+
+  async function runImport() {
+    if (!actor || !parsed) return;
+    setImporting(true);
+    try {
+      const result = await importUserExport(parsed, target, actor);
+      toast.success(`${result.cagnottes} cagnotte(s), ${result.cotisations} cotisation(s) importée(s) ✔`);
+      handleClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Import impossible.");
+    } finally {
+      setImporting(false);
+      setConfirmMismatch(false);
+    }
+  }
+
+  function handleImportClick() {
+    if (ownerMismatch) {
+      setConfirmMismatch(true);
+    } else {
+      runImport();
+    }
+  }
+
+  const totalCotisations = parsed?.cagnottes.reduce((s, c) => s + c.cotisations.length, 0) || 0;
+  const totalAmount = parsed?.cagnottes.reduce((s, c) => s + c.cotisations.reduce((s2, e) => s2 + e.amount, 0), 0) || 0;
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-900/50 backdrop-blur-sm sm:items-center" onClick={handleClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-foreground">Importer pour {target.displayName}</h3>
+          <button type="button" onClick={handleClose} className="rounded-lg p-1 text-muted hover:bg-muted-soft" aria-label="Fermer">
+            <X size={18} />
+          </button>
+        </div>
+        <p className="mb-3 text-xs text-muted">
+          Accepte un export Cotiz (plusieurs cagnottes avec leurs cotisations) ou un tableau/export simple — dans ce
+          second cas, utilisez plutôt la page Import JSON pour choisir la cagnotte cible.
+        </p>
+
+        <textarea
+          className={`${inputClass} font-mono text-xs`}
+          rows={6}
+          placeholder='{ "owner": {...}, "cagnottes": [{ "title": "...", "cotisations": [...] }] }'
+          value={rawJson}
+          onChange={(e) => setRawJson(e.target.value)}
+        />
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-xs font-medium text-foreground hover:bg-muted-soft">
+            <Upload size={14} /> Importer un fichier .json
+            <input type="file" accept=".json,application/json" className="hidden" onChange={handleFile} />
+          </label>
+          <button
+            onClick={handleAnalyze}
+            className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-dark"
+          >
+            Analyser
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-3 flex items-start gap-2 rounded-xl bg-danger-soft p-3 text-sm text-danger">
+            <AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {parsed && (
+          <div className="mt-3 space-y-2">
+            <div className="flex items-start gap-2 rounded-xl bg-success-soft p-3 text-sm text-success">
+              <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0" />
+              <span>
+                <strong>{parsed.cagnottes.length}</strong> cagnotte(s), <strong>{totalCotisations}</strong>{" "}
+                cotisation(s) — total <strong>{formatFCFA(totalAmount)}</strong>
+              </span>
+            </div>
+            {parsed.entriesSkipped > 0 && (
+              <p className="rounded-xl bg-warning-soft p-3 text-xs text-warning">
+                {parsed.entriesSkipped} entrée(s) ignorée(s) (nom ou montant manquant).
+              </p>
+            )}
+            {ownerMismatch && (
+              <div className="flex items-start gap-2 rounded-xl bg-danger-soft p-3 text-xs text-danger">
+                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                <span>
+                  Ce fichier semble avoir été exporté pour un autre compte
+                  {parsed.fileOwner?.email ? ` (${parsed.fileOwner.email})` : ""}. Vérifiez avant de continuer.
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {parsed && parsed.cagnottes.length > 0 && (
+          <button
+            onClick={handleImportClick}
+            disabled={importing}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+          >
+            <FileJson size={16} /> Importer pour {target.displayName}
+          </button>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={confirmMismatch}
+        tone="primary"
+        title="Importer malgré tout ?"
+        description={`Ce fichier semble appartenir à un autre compte${
+          parsed?.fileOwner?.email ? ` (${parsed.fileOwner.email})` : ""
+        }. Les données seront tout de même rattachées à ${target.displayName} (${target.email}).`}
+        confirmLabel="Importer quand même"
+        onCancel={() => setConfirmMismatch(false)}
+        onConfirm={runImport}
       />
     </div>
   );
