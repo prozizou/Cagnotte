@@ -7,7 +7,7 @@
 // automatiquement approuvé et promu "superadmin" à la première connexion.
 export const SUPER_ADMIN_EMAIL = "prozizou298@gmail.com";
 
-export const APP_NAME = "Cotiz";
+export const APP_NAME = "CagnottePro";
 export const APP_TAGLINE = "Gestion administrative des cagnottes et cotisations";
 
 export const USER_STATUS = {

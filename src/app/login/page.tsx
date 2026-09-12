@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
 import { Field, inputClass } from "@/components/ui/Field";
-import { APP_TAGLINE } from "@/lib/constants";
+import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
 import toast from "react-hot-toast";
 import { ShieldCheck, TrendingUp, Users2, Eye, EyeOff } from "lucide-react";
 
@@ -93,8 +93,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-indigo-50 px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
-          <Logo size={48} withText={false} />
-          <h1 className="mt-4 text-2xl font-bold text-foreground">Cotiz</h1>
+          <Logo size={64} />
+          <h1 className="mt-4 text-2xl font-bold text-foreground">{APP_NAME}</h1>
           <p className="mt-1.5 text-sm text-muted">{APP_TAGLINE}</p>
         </div>
 

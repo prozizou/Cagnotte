@@ -57,7 +57,7 @@ export default function PendingPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-indigo-50 px-4 py-10">
       <div className="w-full max-w-sm text-center">
         <div className="flex justify-center">
-          <Logo withText={false} size={40} />
+          <Logo size={40} />
         </div>
         <div className="mt-8 rounded-2xl border border-line bg-surface p-7 shadow-sm">
           <span

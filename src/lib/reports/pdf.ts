@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Cagnotte, CagnotteStats, Cotisation } from "@/lib/types";
 import { formatFCFA, formatPct, formatDate } from "@/lib/format";
+import { APP_NAME } from "@/lib/constants";
 
 export function generateBilanPDF(cagnotte: Cagnotte, stats: CagnotteStats, cotisations: Cotisation[]) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -79,7 +80,7 @@ export function generateBilanPDF(cagnotte: Cagnotte, stats: CagnotteStats, cotis
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
-    doc.text(`Cotiz — Bilan « ${cagnotte.title} » · Page ${i}/${pageCount}`, marginX, 820);
+    doc.text(`${APP_NAME} — Bilan « ${cagnotte.title} » · Page ${i}/${pageCount}`, marginX, 820);
   }
 
   doc.save(`bilan-${slugify(cagnotte.title)}.pdf`);
