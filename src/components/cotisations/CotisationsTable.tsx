@@ -132,7 +132,45 @@ export function CotisationsTable({
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-2xl border border-line">
+          {/* Cartes — mobile : le tableau ci-dessous impose un défilement
+              horizontal sur petit écran (colonnes trop nombreuses pour
+              tenir), remplacé ici par une carte par cotisation, montant en
+              avant, actions en boutons pleine taille (cible tactile ≥ 36px). */}
+          <div className="space-y-2 sm:hidden">
+            {paged.map((c) => (
+              <div key={c.id} className="rounded-xl border border-line bg-surface p-3.5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{c.name}</p>
+                    <p className="mt-0.5 text-xs text-muted">{formatDate(c.date)}</p>
+                    {c.comment && <p className="mt-1 text-xs text-muted">{c.comment}</p>}
+                  </div>
+                  <p className="flex-shrink-0 text-base font-bold tabular-nums text-success">{formatFCFA(c.amount)}</p>
+                </div>
+                {!readOnly && (
+                  <div className="mt-2.5 flex justify-end gap-2 border-t border-line pt-2.5">
+                    <button
+                      onClick={() => onEdit(c)}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-primary-soft hover:text-primary"
+                      aria-label={`Modifier la cotisation de ${c.name}`}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => onDelete(c)}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-danger-soft hover:text-danger"
+                      aria-label={`Supprimer la cotisation de ${c.name}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Tableau — tablette / ordinateur */}
+          <div className="hidden overflow-x-auto rounded-2xl border border-line sm:block">
             <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b border-line bg-muted-soft text-left text-xs font-semibold uppercase tracking-wide text-muted">
@@ -185,7 +223,7 @@ export function CotisationsTable({
                 <button
                   disabled={currentPage <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-line disabled:opacity-40"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-line disabled:opacity-40"
                   aria-label="Page précédente"
                 >
                   <ChevronLeft size={15} />
@@ -193,7 +231,7 @@ export function CotisationsTable({
                 <button
                   disabled={currentPage >= pageCount}
                   onClick={() => setPage((p) => p + 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-line disabled:opacity-40"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-line disabled:opacity-40"
                   aria-label="Page suivante"
                 >
                   <ChevronRight size={15} />
