@@ -403,6 +403,7 @@ function ImportUserDataModal({
 }) {
   const [rawJson, setRawJson] = useState("");
   const [parsed, setParsed] = useState<ParsedUserImport | null>(null);
+  const [flatTitle, setFlatTitle] = useState("");
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
   const [confirmMismatch, setConfirmMismatch] = useState(false);
@@ -412,6 +413,7 @@ function ImportUserDataModal({
   function reset() {
     setRawJson("");
     setParsed(null);
+    setFlatTitle("");
     setError("");
     setConfirmMismatch(false);
   }
@@ -421,14 +423,19 @@ function ImportUserDataModal({
     onClose();
   }
 
+  function applyParseResult(result: ParsedUserImport | null, parseError: string | null) {
+    setError(parseError || "");
+    setParsed(result);
+    setFlatTitle(result?.isFlatFallback ? result.cagnottes[0].title : "");
+  }
+
   function handleAnalyze() {
     if (!rawJson.trim()) {
       toast.error("Collez ou importez d'abord du JSON.");
       return;
     }
     const { result, error: parseError } = parseUserExportJSON(rawJson);
-    setError(parseError || "");
-    setParsed(result);
+    applyParseResult(result, parseError);
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -439,8 +446,7 @@ function ImportUserDataModal({
       const text = String(reader.result || "");
       setRawJson(text);
       const { result, error: parseError } = parseUserExportJSON(text);
-      setError(parseError || "");
-      setParsed(result);
+      applyParseResult(result, parseError);
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -455,7 +461,10 @@ function ImportUserDataModal({
     if (!actor || !parsed) return;
     setImporting(true);
     try {
-      const result = await importUserExport(parsed, target, actor);
+      const toImport = parsed.isFlatFallback
+        ? { ...parsed, cagnottes: [{ ...parsed.cagnottes[0], title: flatTitle.trim() || "Cotisations importées" }] }
+        : parsed;
+      const result = await importUserExport(toImport, target, actor);
       toast.success(`${result.cagnottes} cagnotte(s), ${result.cotisations} cotisation(s) importée(s) ✔`);
       handleClose();
     } catch (err) {
@@ -487,8 +496,9 @@ function ImportUserDataModal({
           </button>
         </div>
         <p className="mb-3 text-xs text-muted">
-          Accepte un export Cotiz (plusieurs cagnottes avec leurs cotisations) ou un tableau/export simple — dans ce
-          second cas, utilisez plutôt la page Import JSON pour choisir la cagnotte cible.
+          Accepte un export Cotiz (plusieurs cagnottes avec leurs cotisations) ou un tableau/export simple (ex.
+          ancien export Realtime Database) — dans ce second cas, une seule nouvelle cagnotte est créée, avec un
+          titre à préciser.
         </p>
 
         <textarea
@@ -531,6 +541,12 @@ function ImportUserDataModal({
               <p className="rounded-xl bg-warning-soft p-3 text-xs text-warning">
                 {parsed.entriesSkipped} entrée(s) ignorée(s) (nom ou montant manquant).
               </p>
+            )}
+            {parsed.isFlatFallback && (
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-foreground">Titre de la nouvelle cagnotte</span>
+                <input className={inputClass} value={flatTitle} onChange={(e) => setFlatTitle(e.target.value)} maxLength={80} />
+              </label>
             )}
             {ownerMismatch && (
               <div className="flex items-start gap-2 rounded-xl bg-danger-soft p-3 text-xs text-danger">
