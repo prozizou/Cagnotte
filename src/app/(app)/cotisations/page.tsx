@@ -85,7 +85,7 @@ export default function CotisationsGlobalPage() {
         <div className="relative flex-1 sm:max-w-xs">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
-            className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             placeholder="Rechercher un nom…"
             value={search}
             onChange={(e) => {
@@ -95,7 +95,7 @@ export default function CotisationsGlobalPage() {
           />
         </div>
         <select
-          className="rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
+          className="rounded-xl border border-line bg-surface px-3 py-2.5 text-base text-foreground focus:border-primary focus:outline-none"
           value={cagnotteFilter}
           onChange={(e) => {
             setCagnotteFilter(e.target.value);

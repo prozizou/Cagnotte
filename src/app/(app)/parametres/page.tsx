@@ -77,7 +77,7 @@ export default function ParametresPage() {
               <div className="flex items-center gap-1.5">
                 <input
                   autoFocus
-                  className={`${inputClass} py-1.5 text-sm`}
+                  className={`${inputClass} py-1.5`}
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
