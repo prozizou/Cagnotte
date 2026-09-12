@@ -54,11 +54,12 @@ export default function JsonImportPage() {
   );
 
   const selectedOwner = users.find((u) => u.uid === ownerId) || null;
+  const resolvedCagnotte = cagnottes.find((c) => c.id === cagnotteId.trim()) || null;
 
   const canImport =
     !!parseResult &&
     parseResult.entries.length > 0 &&
-    (targetMode === "existing" ? !!cagnotteId : !!ownerId && !!title.trim() && !!startDate);
+    (targetMode === "existing" ? !!resolvedCagnotte : !!ownerId && !!title.trim() && !!startDate);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -87,7 +88,7 @@ export default function JsonImportPage() {
     if (!actor || !parseResult) return;
     setImporting(true);
     try {
-      let targetId = cagnotteId;
+      let targetId = cagnotteId.trim();
       if (targetMode === "new") {
         if (!selectedOwner) throw new Error("Choisissez un compte propriétaire.");
         const created = await createCagnotteForImport(
@@ -242,16 +243,38 @@ export default function JsonImportPage() {
           </div>
 
           {targetMode === "existing" ? (
-            <Field label="Cagnotte cible" required>
-              <select className={inputClass} value={cagnotteId} onChange={(e) => setCagnotteId(e.target.value)}>
-                <option value="">— Choisir une cagnotte —</option>
-                {cagnottes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title} — {c.ownerName}
-                  </option>
+            <div className="space-y-3">
+              <Field label="Cagnotte cible" required hint="Ou collez directement un identifiant ci-dessous.">
+                <select
+                  className={inputClass}
+                  value={resolvedCagnotte ? cagnotteId.trim() : ""}
+                  onChange={(e) => setCagnotteId(e.target.value)}
+                >
+                  <option value="">— Choisir une cagnotte —</option>
+                  {cagnottes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title} — {c.ownerName}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Ou coller un ID de cagnotte" hint="Identifiant copié depuis la console Firebase ou une autre page de l'app.">
+                <input
+                  className={`${inputClass} font-mono`}
+                  value={cagnotteId}
+                  onChange={(e) => setCagnotteId(e.target.value.trim())}
+                  placeholder="ex. -P1I1r8D9doFzErEEunJ"
+                />
+              </Field>
+              {cagnotteId.trim() &&
+                (resolvedCagnotte ? (
+                  <p className="text-xs font-medium text-success">
+                    ✔ « {resolvedCagnotte.title} » — {resolvedCagnotte.ownerName}
+                  </p>
+                ) : (
+                  <p className="text-xs font-medium text-danger">Aucune cagnotte trouvée avec cet identifiant.</p>
                 ))}
-              </select>
-            </Field>
+            </div>
           ) : (
             <div className="space-y-3.5">
               <Field label="Compte propriétaire" required hint="Un compte non encore connecté doit d'abord être pré-approuvé (page Utilisateurs).">
@@ -302,7 +325,7 @@ export default function JsonImportPage() {
           parseResult
             ? `${parseResult.entries.length} cotisation(s) — ${formatFCFA(totalAmount)} — seront ajoutées ${
                 targetMode === "existing"
-                  ? `à « ${cagnottes.find((c) => c.id === cagnotteId)?.title || ""} »`
+                  ? `à « ${resolvedCagnotte?.title || ""} »`
                   : `à une nouvelle cagnotte « ${title} » pour ${selectedOwner?.displayName || ""}`
               }. Cette action écrit directement dans Realtime Database.`
             : ""
