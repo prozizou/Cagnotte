@@ -1,11 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Pencil, Trash2, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
+import { Search, Pencil, Trash2, ChevronLeft, ChevronRight, Receipt, Eye, MessageSquare, X } from "lucide-react";
 import { Cotisation } from "@/lib/types";
-import { formatFCFA, formatDate } from "@/lib/format";
+import { formatFCFA, formatDate, formatDateTime } from "@/lib/format";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ActionMenu } from "@/components/ui/ActionMenu";
 import { PAGE_SIZE_COTISATIONS } from "@/lib/constants";
+
+// Une cotisation est créée avec createdAt et updatedAt posés dans la même
+// écriture (même valeur ServerValue.TIMESTAMP résolue une seule fois) : les
+// deux ne divergent que si la cotisation a ensuite été modifiée. Un moyen
+// fiable de savoir si "Modifié" doit s'afficher, sans champ dédié.
+function wasEdited(c: Cotisation): boolean {
+  return !!c.updatedAt && !!c.createdAt && c.updatedAt > c.createdAt;
+}
 
 type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc" | "name_asc" | "name_desc";
 
@@ -34,6 +43,7 @@ export function CotisationsTable({
   const [to, setTo] = useState("");
   const [sort, setSort] = useState<SortKey>("date_desc");
   const [page, setPage] = useState(1);
+  const [details, setDetails] = useState<Cotisation | null>(null);
 
   const filtered = useMemo(() => {
     let list = cotisations;
@@ -134,37 +144,41 @@ export function CotisationsTable({
         <>
           {/* Cartes — mobile : le tableau ci-dessous impose un défilement
               horizontal sur petit écran (colonnes trop nombreuses pour
-              tenir), remplacé ici par une carte par cotisation, montant en
-              avant, actions en boutons pleine taille (cible tactile ≥ 36px). */}
+              tenir). Carte compacte (~90px) plutôt qu'une grande zone avec
+              boutons Modifier/Supprimer exposés en pleine largeur — les
+              actions passent dans un menu "⋮" (voir ActionMenu), pour que la
+              suppression ne soit jamais à portée d'un tap accidentel. */}
           <div className="space-y-2 sm:hidden">
             {paged.map((c) => (
-              <div key={c.id} className="rounded-xl border border-line bg-surface p-3.5 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{c.name}</p>
-                    <p className="mt-0.5 text-xs text-muted">{formatDate(c.date)}</p>
-                    {c.comment && <p className="mt-1 text-xs text-muted">{c.comment}</p>}
-                  </div>
-                  <p className="flex-shrink-0 text-base font-bold tabular-nums text-success">{formatFCFA(c.amount)}</p>
+              <div key={c.id} className="rounded-xl border border-line bg-surface px-3.5 py-3 shadow-sm">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-semibold text-foreground">
+                    <span className="truncate">{c.name}</span>
+                    {c.comment && <MessageSquare size={11} className="flex-shrink-0 text-muted" aria-label="Commentaire" />}
+                  </p>
+                  <p className="flex-shrink-0 text-sm font-bold tabular-nums text-success">{formatFCFA(c.amount)}</p>
                 </div>
-                {!readOnly && (
-                  <div className="mt-2.5 flex justify-end gap-2 border-t border-line pt-2.5">
-                    <button
-                      onClick={() => onEdit(c)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-primary-soft hover:text-primary"
-                      aria-label={`Modifier la cotisation de ${c.name}`}
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(c)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-danger-soft hover:text-danger"
-                      aria-label={`Supprimer la cotisation de ${c.name}`}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                )}
+                <div className="mt-1 flex items-center gap-1.5">
+                  <p className="text-xs text-muted">{formatDate(c.date)}</p>
+                  {wasEdited(c) && (
+                    <span className="rounded-full bg-muted-soft px-1.5 py-0.5 text-[10px] font-medium text-muted">Modifié</span>
+                  )}
+                </div>
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <p className="truncate text-[11px] text-muted">Enregistrée par {c.createdByName || "—"}</p>
+                  <ActionMenu
+                    ariaLabel={`Actions pour la cotisation de ${c.name}`}
+                    items={[
+                      { label: "Voir les détails", icon: Eye, onClick: () => setDetails(c) },
+                      ...(!readOnly
+                        ? [
+                            { label: "Modifier", icon: Pencil, onClick: () => onEdit(c) },
+                            { label: "Supprimer", icon: Trash2, onClick: () => onDelete(c), tone: "danger" as const },
+                          ]
+                        : []),
+                    ]}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -241,6 +255,58 @@ export function CotisationsTable({
           )}
         </>
       )}
+
+      {details && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-900/50 backdrop-blur-sm sm:items-center"
+          onClick={() => setDetails(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-base font-semibold text-foreground">Détails de la cotisation</h3>
+              <button
+                onClick={() => setDetails(null)}
+                className="rounded-lg p-1 text-muted hover:bg-muted-soft"
+                aria-label="Fermer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <dl className="mt-4 space-y-3 text-sm">
+              <DetailRow label="Cotisant" value={details.name} />
+              <DetailRow label="Montant" value={formatFCFA(details.amount)} valueClassName="font-bold text-success" />
+              <DetailRow label="Date" value={formatDate(details.date)} />
+              {details.comment && <DetailRow label="Commentaire" value={details.comment} />}
+              <DetailRow label="Enregistrée par" value={details.createdByName || "—"} />
+              <DetailRow label="Créée le" value={formatDateTime(details.createdAt)} />
+              {wasEdited(details) && <DetailRow label="Modifiée le" value={formatDateTime(details.updatedAt)} />}
+            </dl>
+            {!readOnly && (
+              <button
+                onClick={() => {
+                  onEdit(details);
+                  setDetails(null);
+                }}
+                className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+              >
+                <Pencil size={15} /> Modifier
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailRow({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <dt className="flex-shrink-0 text-muted">{label}</dt>
+      <dd className={`text-right text-foreground ${valueClassName || ""}`}>{value}</dd>
     </div>
   );
 }
