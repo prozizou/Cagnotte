@@ -14,6 +14,7 @@ l'application ne traite aucun paiement en ligne.
 - **Next.js 16** (App Router, TypeScript, Turbopack)
 - **Tailwind CSS v4**
 - **Firebase** : Authentication (Email/Mot de passe, Google en secours), Realtime Database, Security Rules
+- **Cloudinary** pour les images de couverture des cagnottes (envoi via une route serveur Next.js)
 - **Recharts** pour les graphiques, **jsPDF** / **ExcelJS** pour les exports
 
 ## 1. Préparer le projet Firebase
@@ -32,12 +33,13 @@ c'est la même base que l'ancienne page), réutilisez ce même projet.
    données** (mode verrouillé — les règles ci-dessous seront déployées
    ensuite). Notez son **URL** affichée en haut de la page (ex.
    `https://<projet>-default-rtdb.<région>.firebasedatabase.app`).
-4. **Storage** → si ce n'est pas déjà fait, **Commencer** (mode production —
-   les règles `storage.rules` seront déployées à l'étape 4bis). Utilisé
-   uniquement pour les images de couverture des cagnottes.
-5. **Paramètres du projet** → Vos applications → si une application Web
+4. **Paramètres du projet** → Vos applications → si une application Web
    existe déjà (c'était le cas pour l'ancienne page), réutilisez sa
    configuration ; sinon ajoutez-en une et copiez la configuration.
+
+Les images de couverture des cagnottes n'utilisent pas Firebase mais
+**Cloudinary** (voir étape 2) — aucune étape Firebase supplémentaire n'est
+nécessaire pour elles.
 
 ## 2. Configurer les variables d'environnement
 
@@ -50,6 +52,13 @@ Renseignez les valeurs issues de la configuration Firebase (`apiKey`,
 **et** `databaseURL` (l'URL notée à l'étape précédente) dans
 `NEXT_PUBLIC_FIREBASE_DATABASE_URL`. Sans cette dernière, le SDK ne peut
 pas se connecter à la base.
+
+Ajoutez aussi `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` et
+`CLOUDINARY_API_SECRET` (Dashboard Cloudinary → Programmable Media → API
+Keys) — **sans** le préfixe `NEXT_PUBLIC_` : ces variables ne sont utilisées
+que côté serveur (route `/api/upload-image`), jamais envoyées au
+navigateur. Sans elles, l'envoi d'une image de couverture échoue (le reste
+de l'application continue de fonctionner normalement).
 
 Pensez à renseigner les mêmes variables côté hébergeur (Vercel, etc.).
 
@@ -80,16 +89,6 @@ dans Console Firebase → Realtime Database → onglet **Règles**.
 ⚠️ Sans ces règles, la base de données reste protégée par les règles par
 défaut de votre projet (généralement tout refusé) — l'application ne
 fonctionnera pas tant qu'elles ne sont pas déployées.
-
-## 4bis. Déployer les règles de sécurité Storage (images de couverture)
-
-```bash
-firebase deploy --only storage
-```
-
-Ou collez le contenu de `storage.rules` dans Console Firebase → Storage →
-onglet **Règles**. Sans elles, l'envoi d'une image de couverture échouera
-(le reste de l'application continue de fonctionner normalement).
 
 ## 5. Lancer en développement
 
