@@ -15,6 +15,7 @@ export interface ParsedImportEntry {
   name: string;
   amount: number;
   date: string; // ISO yyyy-MM-dd
+  comment?: string;
 }
 
 export interface ParseImportResult {
@@ -114,7 +115,7 @@ export async function importEntriesToCagnotte(
       name: entry.name,
       amount: entry.amount,
       date: entry.date,
-      comment: "",
+      comment: entry.comment || "",
       createdBy: actor.uid,
       createdByName: actor.name,
       createdAt: serverTimestamp(),
@@ -145,6 +146,7 @@ export interface NewCagnotteForImport {
   startDate: string;
   endDate: string;
   goalAmount: number;
+  status?: "draft" | "active" | "completed" | "archived";
 }
 
 export async function createCagnotteForImport(
@@ -160,7 +162,7 @@ export async function createCagnotteForImport(
     startDate: input.startDate,
     endDate: input.endDate,
     goalAmount: input.goalAmount,
-    status: "active",
+    status: input.status || "active",
     contacts: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
