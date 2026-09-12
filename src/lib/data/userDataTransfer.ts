@@ -1,5 +1,5 @@
 import { Cagnotte, CagnotteStatus, Cotisation, UserProfile } from "@/lib/types";
-import { createCagnotteForImport, importEntriesToCagnotte, ParsedImportEntry } from "./jsonImport";
+import { createCagnotteForImport, importEntriesToCagnotte, parseImportJSON, ParsedImportEntry } from "./jsonImport";
 import { todayISO } from "@/lib/format";
 
 /**
@@ -77,6 +77,11 @@ export interface ParsedUserImport {
   cagnottes: UserExportCagnotte[];
   fileOwner: { uid?: string; email?: string } | null;
   entriesSkipped: number;
+  // Le fichier n'était pas un export Cotiz (pas de tableau "cagnottes")
+  // mais un tableau/export RTDB plat : une seule cagnotte est proposée,
+  // avec un titre à choisir avant import (cagnottes[0].title fait office
+  // de valeur par défaut, modifiable).
+  isFlatFallback: boolean;
 }
 
 const CAGNOTTE_STATUSES: CagnotteStatus[] = ["draft", "active", "completed", "archived"];
@@ -85,7 +90,9 @@ const CAGNOTTE_STATUSES: CagnotteStatus[] = ["draft", "active", "completed", "ar
  * Accepte le format d'export ci-dessus (plusieurs cagnottes, chacune avec
  * ses cotisations imbriquées). Contrairement à parseImportJSON() (format
  * plat, une seule cagnotte cible), ce format restitue toute la structure
- * d'un compte en un import.
+ * d'un compte en un import. Si le fichier n'a pas ce format (ex. un
+ * ancien export RTDB plat, un simple tableau d'entrées), on retombe sur
+ * parseImportJSON() et on propose une seule nouvelle cagnotte.
  */
 export function parseUserExportJSON(raw: string): { result: ParsedUserImport | null; error: string | null } {
   let data: unknown;
@@ -95,7 +102,34 @@ export function parseUserExportJSON(raw: string): { result: ParsedUserImport | n
     return { result: null, error: "JSON invalide : " + (err instanceof Error ? err.message : "erreur de syntaxe") };
   }
   if (!data || typeof data !== "object" || !Array.isArray((data as Record<string, unknown>).cagnottes)) {
-    return { result: null, error: 'Format non reconnu : ce fichier ne contient pas de tableau "cagnottes".' };
+    const flat = parseImportJSON(raw);
+    if (flat.entries.length === 0) {
+      return {
+        result: null,
+        error:
+          flat.errors[0] ||
+          'Format non reconnu : ni un export Cotiz (tableau "cagnottes"), ni un tableau/export de cotisations valide.',
+      };
+    }
+    return {
+      result: {
+        cagnottes: [
+          {
+            title: "Cotisations importées",
+            description: "",
+            startDate: todayISO(),
+            endDate: "",
+            goalAmount: 0,
+            status: "active",
+            cotisations: flat.entries.map((e) => ({ name: e.name, amount: e.amount, date: e.date, comment: e.comment || "" })),
+          },
+        ],
+        fileOwner: null,
+        entriesSkipped: flat.errors.length,
+        isFlatFallback: true,
+      },
+      error: null,
+    };
   }
 
   const obj = data as Record<string, unknown>;
@@ -132,7 +166,7 @@ export function parseUserExportJSON(raw: string): { result: ParsedUserImport | n
     };
   });
 
-  return { result: { cagnottes, fileOwner, entriesSkipped }, error: null };
+  return { result: { cagnottes, fileOwner, entriesSkipped, isFlatFallback: false }, error: null };
 }
 
 /**
