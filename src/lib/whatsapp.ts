@@ -37,6 +37,19 @@ export function buildDetailedListMessage(cagnotte: Cagnotte, cotisations: Cotisa
   return lines.join("\n");
 }
 
+/**
+ * Message complet utilisé par le bouton "Partager le bilan" de la fiche
+ * cagnotte : le résumé chiffré (buildBilanMessage) suivi de la liste
+ * nominative des cotisants (buildDetailedListMessage). Contrairement à la
+ * page Rapport — qui propose sciemment deux boutons séparés (résumé /
+ * liste), ici un seul partage doit tout contenir, la demande initiale étant
+ * justement que "les membres qui ont cotisé" apparaissent dans le message
+ * envoyé sur WhatsApp.
+ */
+export function buildFullBilanMessage(cagnotte: Cagnotte, stats: CagnotteStats, cotisations: Cotisation[]): string {
+  return `${buildBilanMessage(cagnotte, stats)}\n\n${buildDetailedListMessage(cagnotte, cotisations)}`;
+}
+
 export function whatsAppShareUrl(message: string): string {
   return "https://wa.me/?text=" + encodeURIComponent(message);
 }

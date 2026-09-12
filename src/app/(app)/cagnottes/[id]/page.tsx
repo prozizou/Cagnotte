@@ -33,7 +33,7 @@ import { CotisationsTable } from "@/components/cotisations/CotisationsTable";
 import { CotisationFormModal } from "@/components/cotisations/CotisationFormModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatFCFA, formatPct, formatDate } from "@/lib/format";
-import { buildBilanMessage, whatsAppShareUrl } from "@/lib/whatsapp";
+import { buildFullBilanMessage, whatsAppShareUrl } from "@/lib/whatsapp";
 import { CAGNOTTE_STATUS_LABELS } from "@/lib/constants";
 
 export default function CagnotteDetailPage() {
@@ -119,28 +119,49 @@ export default function CagnotteDetailPage() {
 
   async function handleShareBilan() {
     if (!cagnotte) return;
-    const msg = buildBilanMessage(cagnotte, stats);
+    const msg = buildFullBilanMessage(cagnotte, stats, cotisations);
 
-    // Quand une image de couverture existe et que le navigateur sait
-    // partager des fichiers (API Web Share, surtout mobile), on partage
-    // l'image + la légende — c'est ce qui donne le rendu "affiche" dans
-    // WhatsApp (image en pièce jointe, texte en légende dessous). Sinon,
-    // repli sur le lien wa.me classique (texte seul).
-    if (cagnotte.imageUrl && typeof navigator !== "undefined" && navigator.share && navigator.canShare) {
+    // On ne tente le partage natif (image en pièce jointe + texte en
+    // légende — le rendu "affiche" dans WhatsApp) que si le navigateur sait
+    // réellement partager des fichiers. On le vérifie avec un fichier
+    // factice AVANT de télécharger la vraie image : sur un navigateur qui ne
+    // supporte pas le partage de fichiers (ex. certaines WebView Android/
+    // iOS intégrées à d'autres apps), ça évite un aller-retour réseau inutile
+    // qui, une fois échoué, arrivait trop tard pour que le repli ci-dessous
+    // soit encore rattaché au geste de l'utilisateur (d'où le "rien ne se
+    // passe" observé sur téléphone).
+    const canShareFiles =
+      !!cagnotte.imageUrl &&
+      typeof navigator !== "undefined" &&
+      !!navigator.share &&
+      !!navigator.canShare &&
+      navigator.canShare({ files: [new File([], "cagnotte.jpg", { type: "image/jpeg" })] });
+
+    if (canShareFiles) {
       try {
-        const response = await fetch(cagnotte.imageUrl);
+        const response = await fetch(cagnotte.imageUrl as string);
+        if (!response.ok) throw new Error("Échec du téléchargement de l'image.");
         const blob = await response.blob();
         const file = new File([blob], "cagnotte.jpg", { type: blob.type || "image/jpeg" });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], text: msg });
-          return;
-        }
+        await navigator.share({ files: [file], text: msg });
+        return;
       } catch (err) {
         if ((err as { name?: string })?.name === "AbortError") return; // partage annulé par l'utilisateur
-        // sinon : échec silencieux (réseau, CORS…), on retombe sur le texte seul ci-dessous
+        // sinon : échec (réseau, image indisponible…), on retombe sur le repli ci-dessous
       }
     }
 
+    // Repli : WhatsApp (via wa.me) ne permet d'envoyer que du texte, jamais
+    // une image en pièce jointe. Comme le partage natif ci-dessus n'a pas pu
+    // aboutir, on ouvre en plus la photo de couverture dans un nouvel onglet
+    // pour que l'utilisateur puisse l'enregistrer et la joindre lui-même au
+    // message WhatsApp qui s'ouvre juste après.
+    if (cagnotte.imageUrl) {
+      window.open(cagnotte.imageUrl, "_blank", "noopener");
+      toast("Photo ouverte dans un nouvel onglet : enregistrez-la puis joignez-la à votre message WhatsApp.", {
+        icon: "📎",
+      });
+    }
     window.open(whatsAppShareUrl(msg), "_blank", "noopener");
   }
 
