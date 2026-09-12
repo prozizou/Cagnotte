@@ -1,6 +1,5 @@
 import { equalTo, get, onValue, orderByChild, push, query, ref, serverTimestamp, set, update } from "firebase/database";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { db, storage } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { Cagnotte, CagnotteStatus, Contact } from "@/lib/types";
 import { logHistory } from "./history";
 import { snapshotToList } from "./rtdbUtils";
@@ -19,20 +18,33 @@ export interface CagnotteFormInput {
 }
 
 /**
- * Téléverse l'image de couverture d'une cagnotte dans Firebase Storage,
- * sous cagnottes/{ownerId}/… — le segment ownerId permet aux règles de
- * sécurité Storage de vérifier l'auteur directement depuis le chemin
- * (Storage ne peut pas interroger Realtime Database). Retourne l'URL
- * publique à stocker sur la cagnotte (champ imageUrl).
+ * Téléverse l'image de couverture d'une cagnotte vers Cloudinary, via la
+ * route serveur /api/upload-image (la clé API secrète Cloudinary ne doit
+ * jamais atteindre le navigateur). L'appel est authentifié par l'ID token
+ * Firebase de l'utilisateur courant — la route rejette toute requête non
+ * authentifiée. Retourne l'URL publique à stocker sur la cagnotte (champ
+ * imageUrl).
  */
 export async function uploadCagnotteImage(ownerId: string, file: File): Promise<string> {
   if (!file.type.startsWith("image/")) throw new Error("Le fichier doit être une image.");
   if (file.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (5 Mo maximum).");
-  const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
-  const path = `cagnottes/${ownerId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-  const fileRef = storageRef(storage, path);
-  await uploadBytes(fileRef, file, { contentType: file.type });
-  return getDownloadURL(fileRef);
+
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("Vous devez être connecté pour envoyer une image.");
+  const idToken = await currentUser.getIdToken();
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", ownerId);
+
+  const res = await fetch("/api/upload-image", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: formData,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Échec de l'envoi de l'image.");
+  return data.url as string;
 }
 
 export async function createCagnotte(

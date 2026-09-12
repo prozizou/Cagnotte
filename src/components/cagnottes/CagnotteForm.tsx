@@ -22,8 +22,8 @@ export function CagnotteForm({
   initial?: Cagnotte;
   // Propriétaire réel de la cagnotte (soi-même à la création ; le
   // propriétaire déjà enregistré en édition, y compris quand le Super
-  // Admin modifie la cagnotte d'un autre compte) — détermine le chemin
-  // Storage de l'image, vérifié par les règles de sécurité.
+  // Admin modifie la cagnotte d'un autre compte) — sert de dossier
+  // Cloudinary pour l'image, à titre d'organisation.
   ownerId: string;
   onSubmit: (input: CagnotteFormInput) => void | Promise<void>;
   submitLabel?: string;

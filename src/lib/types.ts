@@ -39,9 +39,9 @@ export interface Cagnotte {
   goalAmount: number;
   contacts: Contact[];
   status: CagnotteStatus;
-  // Image de couverture (Firebase Storage) : utilisée dans l'app et
-  // incluse lors du partage du bilan (WhatsApp l'affiche en pièce jointe
-  // avec la légende), pour un rendu proche d'une affiche.
+  // Image de couverture (Cloudinary) : utilisée dans l'app et incluse
+  // lors du partage du bilan (WhatsApp l'affiche en pièce jointe avec la
+  // légende), pour un rendu proche d'une affiche.
   imageUrl: string | null;
   createdAt: Millis | null;
   updatedAt: Millis | null;
