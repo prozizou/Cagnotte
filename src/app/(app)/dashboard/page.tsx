@@ -11,12 +11,10 @@ import { KPICard, KPICardSkeleton } from "@/components/ui/KPICard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CagnotteStatusBadge, UserStatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { formatFCFA, formatPct, formatDateTime } from "@/lib/format";
+import { formatFCFA, formatPct } from "@/lib/format";
 import { computeCagnotteStats, buildEvolutionSeries, EvolutionPeriod } from "@/lib/stats";
-import { subscribeHistoryForOwner, subscribeAllHistory } from "@/lib/data/history";
 import { subscribeAllUsers } from "@/lib/data/users";
-import { HistoryEntry, UserProfile } from "@/lib/types";
-import { HistoryIcon } from "@/components/history/HistoryIcon";
+import { UserProfile } from "@/lib/types";
 import clsx from "clsx";
 import {
   BarChart,
@@ -38,21 +36,13 @@ const EVOLUTION_PERIODS: Array<{ value: EvolutionPeriod; label: string }> = [
 ];
 
 export default function DashboardPage() {
-  const { profile, firebaseUser, isSuperAdmin } = useAuth();
+  const { profile, isSuperAdmin } = useAuth();
   const { cagnottes, loading: loadingCagnottes } = useCagnottes();
   const { cotisations, loading: loadingCotisations } = useOwnerCotisations();
   const pendingUsersCount = usePendingUsersCount();
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [period, setPeriod] = useState<EvolutionPeriod>("30j");
-
-  useEffect(() => {
-    if (!firebaseUser) return;
-    return isSuperAdmin
-      ? subscribeAllHistory(setHistory, 8)
-      : subscribeHistoryForOwner(firebaseUser.uid, setHistory, 8);
-  }, [firebaseUser, isSuperAdmin]);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -228,48 +218,25 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Cagnottes les plus collectées</h2>
-          </div>
-          {loading ? (
-            <div className="skeleton h-56 w-full" />
-          ) : chartData.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted">Aucune donnée pour le moment.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={230}>
-              <BarChart data={chartData} margin={{ left: -18, right: 8 }}>
-                <CartesianGrid vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={70} tickFormatter={(v) => Number(v).toLocaleString("fr-FR")} />
-                <Tooltip formatter={(v) => formatFCFA(Number(v))} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
-                <Bar dataKey="total" fill="#4338ca" radius={[6, 6, 0, 0]} maxBarSize={44} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground">Cagnottes les plus collectées</h2>
         </div>
-
-        <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-foreground">Dernières activités</h2>
-          {history.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted">Rien à signaler pour l&apos;instant.</p>
-          ) : (
-            <ul className="space-y-3.5">
-              {history.map((h) => (
-                <li key={h.id} className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-                    <HistoryIcon type={h.type} size={13} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-foreground">{h.description}</p>
-                    <p className="text-[11px] text-muted">{formatDateTime(h.createdAt)}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {loading ? (
+          <div className="skeleton h-56 w-full" />
+        ) : chartData.length === 0 ? (
+          <p className="py-16 text-center text-sm text-muted">Aucune donnée pour le moment.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={230}>
+            <BarChart data={chartData} margin={{ left: -18, right: 8 }}>
+              <CartesianGrid vertical={false} stroke="#e2e8f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={70} tickFormatter={(v) => Number(v).toLocaleString("fr-FR")} />
+              <Tooltip formatter={(v) => formatFCFA(Number(v))} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Bar dataKey="total" fill="#4338ca" radius={[6, 6, 0, 0]} maxBarSize={44} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {isSuperAdmin ? (
