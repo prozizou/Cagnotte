@@ -8,9 +8,12 @@ import {
   linkWithCredential,
   reauthenticateWithCredential,
   updatePassword,
+  updateProfile,
 } from "firebase/auth";
-import { LogOut, ShieldCheck, KeyRound, Eye, EyeOff } from "lucide-react";
+import { ref, update, serverTimestamp } from "firebase/database";
+import { LogOut, ShieldCheck, KeyRound, Eye, EyeOff, Pencil, Check, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { db } from "@/lib/firebase";
 import { formatDateTime } from "@/lib/format";
 import { UserStatusBadge } from "@/components/ui/StatusBadge";
 import { Field, inputClass } from "@/components/ui/Field";
@@ -18,11 +21,34 @@ import { Field, inputClass } from "@/components/ui/Field";
 export default function ParametresPage() {
   const { profile, firebaseUser, isSuperAdmin, signOut } = useAuth();
   const router = useRouter();
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   async function handleSignOut() {
     await signOut();
     toast.success("Déconnecté");
     router.push("/login");
+  }
+
+  async function handleSaveName() {
+    const trimmed = nameInput.trim();
+    if (!trimmed || !firebaseUser) return;
+    setSavingName(true);
+    try {
+      // Le profil affiché dans toute l'app (en-tête, salutation…) vient du
+      // document Realtime Database, pas de l'objet Firebase Auth en
+      // mémoire — les deux sont mis à jour pour rester cohérents (ex. si le
+      // profil est un jour re-bootstrapé depuis firebaseUser.displayName).
+      await updateProfile(firebaseUser, { displayName: trimmed });
+      await update(ref(db, `users/${firebaseUser.uid}`), { displayName: trimmed, updatedAt: serverTimestamp() });
+      toast.success("Nom mis à jour ✔");
+      setEditingName(false);
+    } catch {
+      toast.error("Échec de la mise à jour du nom.");
+    } finally {
+      setSavingName(false);
+    }
   }
 
   if (!profile) return null;
@@ -46,11 +72,49 @@ export default function ParametresPage() {
               {profile.displayName?.[0]?.toUpperCase() || "U"}
             </div>
           )}
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <p className="truncate text-base font-semibold text-foreground">{profile.displayName}</p>
-              {isSuperAdmin && <ShieldCheck size={15} className="flex-shrink-0 text-primary" />}
-            </div>
+          <div className="min-w-0 flex-1">
+            {editingName ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  className={`${inputClass} py-1.5 text-sm`}
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={savingName}
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-white disabled:opacity-60"
+                  aria-label="Enregistrer"
+                >
+                  <Check size={15} />
+                </button>
+                <button
+                  onClick={() => setEditingName(false)}
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-line text-muted"
+                  aria-label="Annuler"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-base font-semibold text-foreground">{profile.displayName}</p>
+                {isSuperAdmin && <ShieldCheck size={15} className="flex-shrink-0 text-primary" />}
+                <button
+                  onClick={() => {
+                    setNameInput(profile.displayName || "");
+                    setEditingName(true);
+                  }}
+                  className="flex-shrink-0 rounded-lg p-1 text-muted hover:bg-muted-soft hover:text-foreground"
+                  aria-label="Modifier le nom affiché"
+                  title="Modifier le nom affiché"
+                >
+                  <Pencil size={13} />
+                </button>
+              </div>
+            )}
             <p className="truncate text-sm text-muted">{profile.email}</p>
           </div>
         </div>

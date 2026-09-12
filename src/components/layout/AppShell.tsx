@@ -123,7 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-danger" aria-hidden="true" />
             )}
           </button>
-          <Logo size={28} />
+          <Logo size={40} />
           <QuickAddButton />
         </header>
 
