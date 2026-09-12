@@ -8,6 +8,7 @@ import {
   Pencil,
   Plus,
   Share2,
+  Send,
   BarChart3,
   Target,
   Users,
@@ -33,7 +34,7 @@ import { CotisationsTable } from "@/components/cotisations/CotisationsTable";
 import { CotisationFormModal } from "@/components/cotisations/CotisationFormModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatFCFA, formatPct, formatDate } from "@/lib/format";
-import { buildFullBilanMessage, whatsAppShareUrl } from "@/lib/whatsapp";
+import { buildFullBilanMessage, buildGroupShareMessage, whatsAppShareUrl } from "@/lib/whatsapp";
 import { CAGNOTTE_STATUS_LABELS } from "@/lib/constants";
 
 export default function CagnotteDetailPage() {
@@ -117,21 +118,18 @@ export default function CagnotteDetailPage() {
     router.push("/cagnottes");
   }
 
-  async function handleShareBilan() {
-    if (!cagnotte) return;
-    const msg = buildFullBilanMessage(cagnotte, stats, cotisations);
-
-    // On ne tente le partage natif (image en pièce jointe + texte en
-    // légende — le rendu "affiche" dans WhatsApp) que si le navigateur sait
-    // réellement partager des fichiers. On le vérifie avec un fichier
-    // factice AVANT de télécharger la vraie image : sur un navigateur qui ne
-    // supporte pas le partage de fichiers (ex. certaines WebView Android/
-    // iOS intégrées à d'autres apps), ça évite un aller-retour réseau inutile
-    // qui, une fois échoué, arrivait trop tard pour que le repli ci-dessous
-    // soit encore rattaché au geste de l'utilisateur (d'où le "rien ne se
-    // passe" observé sur téléphone).
+  // Partage WhatsApp générique (image de couverture + texte). On ne tente le
+  // partage natif (image en pièce jointe + texte en légende — le rendu
+  // "affiche" dans WhatsApp) que si le navigateur sait réellement partager
+  // des fichiers. On le vérifie avec un fichier factice AVANT de télécharger
+  // la vraie image : sur un navigateur qui ne supporte pas le partage de
+  // fichiers (ex. certaines WebView Android/iOS intégrées à d'autres apps),
+  // ça évite un aller-retour réseau inutile qui, une fois échoué, arrivait
+  // trop tard pour que le repli ci-dessous soit encore rattaché au geste de
+  // l'utilisateur (d'où le "rien ne se passe" observé sur téléphone).
+  async function shareToWhatsApp(imageUrl: string | null, message: string) {
     const canShareFiles =
-      !!cagnotte.imageUrl &&
+      !!imageUrl &&
       typeof navigator !== "undefined" &&
       !!navigator.share &&
       !!navigator.canShare &&
@@ -139,11 +137,11 @@ export default function CagnotteDetailPage() {
 
     if (canShareFiles) {
       try {
-        const response = await fetch(cagnotte.imageUrl as string);
+        const response = await fetch(imageUrl as string);
         if (!response.ok) throw new Error("Échec du téléchargement de l'image.");
         const blob = await response.blob();
         const file = new File([blob], "cagnotte.jpg", { type: blob.type || "image/jpeg" });
-        await navigator.share({ files: [file], text: msg });
+        await navigator.share({ files: [file], text: message });
         return;
       } catch (err) {
         if ((err as { name?: string })?.name === "AbortError") return; // partage annulé par l'utilisateur
@@ -156,13 +154,26 @@ export default function CagnotteDetailPage() {
     // aboutir, on ouvre en plus la photo de couverture dans un nouvel onglet
     // pour que l'utilisateur puisse l'enregistrer et la joindre lui-même au
     // message WhatsApp qui s'ouvre juste après.
-    if (cagnotte.imageUrl) {
-      window.open(cagnotte.imageUrl, "_blank", "noopener");
+    if (imageUrl) {
+      window.open(imageUrl, "_blank", "noopener");
       toast("Photo ouverte dans un nouvel onglet : enregistrez-la puis joignez-la à votre message WhatsApp.", {
         icon: "📎",
       });
     }
-    window.open(whatsAppShareUrl(msg), "_blank", "noopener");
+    window.open(whatsAppShareUrl(message), "_blank", "noopener");
+  }
+
+  async function handleShareBilan() {
+    if (!cagnotte) return;
+    await shareToWhatsApp(cagnotte.imageUrl, buildFullBilanMessage(cagnotte, stats, cotisations));
+  }
+
+  // "Envoyer dans le groupe" : une annonce complète prête à coller dans un
+  // groupe WhatsApp (image + titre + statut + numéros de contact + bilan +
+  // liste nominative des dons), en un seul partage.
+  async function handleShareGroup() {
+    if (!cagnotte) return;
+    await shareToWhatsApp(cagnotte.imageUrl, buildGroupShareMessage(cagnotte, stats, cotisations));
   }
 
   return (
@@ -199,6 +210,12 @@ export default function CagnotteDetailPage() {
             className="flex items-center gap-1.5 rounded-xl bg-whatsapp px-3.5 py-2 text-sm font-semibold text-white hover:bg-whatsapp-dark"
           >
             <Share2 size={15} /> Partager le bilan
+          </button>
+          <button
+            onClick={handleShareGroup}
+            className="flex items-center gap-1.5 rounded-xl border border-whatsapp px-3.5 py-2 text-sm font-semibold text-whatsapp hover:bg-whatsapp/10"
+          >
+            <Send size={15} /> Envoyer dans le groupe
           </button>
           <Link
             href={`/cagnottes/${id}/edit`}
