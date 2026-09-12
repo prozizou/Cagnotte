@@ -2,8 +2,12 @@ import { Phone } from "lucide-react";
 import { Contact } from "@/lib/types";
 import { whatsAppContactUrl } from "@/lib/whatsapp";
 
-export function ContactsList({ contacts }: { contacts: Contact[] }) {
-  if (contacts.length === 0) {
+export function ContactsList({ contacts }: { contacts: Contact[] | null | undefined }) {
+  // Filet de sécurité : Realtime Database ne conserve jamais un tableau
+  // vide (voir normalizeCagnotte dans lib/data/cagnottes.ts, qui corrige
+  // déjà ça à la lecture) — ce composant reste néanmoins robuste par
+  // lui-même si jamais il est appelé ailleurs avec une donnée brute.
+  if (!contacts || contacts.length === 0) {
     return <p className="text-sm text-muted">Aucun contact administratif renseigné.</p>;
   }
   return (

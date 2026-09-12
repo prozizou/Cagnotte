@@ -182,6 +182,18 @@ function sortByCreatedAtDesc(list: Cagnotte[]): Cagnotte[] {
   return [...list].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
 
+// Realtime Database ne stocke jamais un tableau (ou objet) vide : un champ
+// écrit comme `contacts: []` n'existe tout simplement plus dans le document
+// une fois relu (contrairement à Firestore). Sans cette normalisation,
+// `cagnotte.contacts` vaut `undefined` pour toute cagnotte créée sans
+// contact (ex. via l'import JSON), et `contacts.length` plante dans
+// ContactsList. On rétablit ici la garantie du type Cagnotte
+// ("contacts: Contact[]", jamais undefined) une fois pour toutes, à la
+// lecture — plutôt que de laisser chaque écran s'en prémunir séparément.
+function normalizeCagnotte(raw: Cagnotte): Cagnotte {
+  return { ...raw, contacts: raw.contacts || [] };
+}
+
 export function subscribeUserCagnottes(
   uid: string,
   cb: (cagnottes: Cagnotte[]) => void,
@@ -191,7 +203,7 @@ export function subscribeUserCagnottes(
   return onValue(
     q,
     (snap) => {
-      cb(sortByCreatedAtDesc(snapshotToList<Cagnotte>(snap)));
+      cb(sortByCreatedAtDesc(snapshotToList<Cagnotte>(snap).map(normalizeCagnotte)));
     },
     (err) => onError?.(err)
   );
@@ -208,7 +220,7 @@ export function subscribeAllCagnottes(cb: (cagnottes: Cagnotte[]) => void, onErr
   return onValue(
     ref(db, "cagnottes"),
     (snap) => {
-      cb(sortByCreatedAtDesc(snapshotToList<Cagnotte>(snap)));
+      cb(sortByCreatedAtDesc(snapshotToList<Cagnotte>(snap).map(normalizeCagnotte)));
     },
     (err) => onError?.(err)
   );
@@ -216,6 +228,6 @@ export function subscribeAllCagnottes(cb: (cagnottes: Cagnotte[]) => void, onErr
 
 export function subscribeCagnotte(cagnotteId: string, cb: (cagnotte: Cagnotte | null) => void) {
   return onValue(ref(db, `cagnottes/${cagnotteId}`), (snap) => {
-    cb(snap.exists() ? ({ id: snap.key, ...snap.val() } as Cagnotte) : null);
+    cb(snap.exists() ? normalizeCagnotte({ id: snap.key, ...snap.val() } as Cagnotte) : null);
   });
 }
