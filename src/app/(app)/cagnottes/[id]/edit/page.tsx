@@ -55,7 +55,7 @@ export default function EditCagnottePage() {
         <h1 className="text-xl font-bold text-foreground">Modifier la cagnotte</h1>
       </div>
       <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
-        <CagnotteForm initial={cagnotte} onSubmit={handleSubmit} submitting={submitting} submitLabel="Enregistrer" />
+        <CagnotteForm initial={cagnotte} ownerId={cagnotte.ownerId} onSubmit={handleSubmit} submitting={submitting} submitLabel="Enregistrer" />
       </div>
     </div>
   );

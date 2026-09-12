@@ -1,5 +1,6 @@
 import { equalTo, get, onValue, orderByChild, push, query, ref, serverTimestamp, set, update } from "firebase/database";
-import { db } from "@/lib/firebase";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { Cagnotte, CagnotteStatus, Contact } from "@/lib/types";
 import { logHistory } from "./history";
 import { snapshotToList } from "./rtdbUtils";
@@ -14,6 +15,24 @@ export interface CagnotteFormInput {
   goalAmount: number;
   contacts: Contact[];
   status: CagnotteStatus;
+  imageUrl: string | null;
+}
+
+/**
+ * Téléverse l'image de couverture d'une cagnotte dans Firebase Storage,
+ * sous cagnottes/{ownerId}/… — le segment ownerId permet aux règles de
+ * sécurité Storage de vérifier l'auteur directement depuis le chemin
+ * (Storage ne peut pas interroger Realtime Database). Retourne l'URL
+ * publique à stocker sur la cagnotte (champ imageUrl).
+ */
+export async function uploadCagnotteImage(ownerId: string, file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Le fichier doit être une image.");
+  if (file.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (5 Mo maximum).");
+  const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
+  const path = `cagnottes/${ownerId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const fileRef = storageRef(storage, path);
+  await uploadBytes(fileRef, file, { contentType: file.type });
+  return getDownloadURL(fileRef);
 }
 
 export async function createCagnotte(
@@ -31,6 +50,7 @@ export async function createCagnotte(
     goalAmount: input.goalAmount,
     contacts: input.contacts,
     status: input.status,
+    imageUrl: input.imageUrl,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -62,6 +82,7 @@ export async function updateCagnotte(
     goalAmount: input.goalAmount,
     contacts: input.contacts,
     status: input.status,
+    imageUrl: input.imageUrl,
     updatedAt: serverTimestamp(),
   });
 
