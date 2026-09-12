@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pendingCount = usePendingUsersCount();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // 5 entrées maximum (4 pour un utilisateur standard, sans "Utilisateurs") :
+  // 4 entrées maximum (3 pour un utilisateur standard, sans "Utilisateurs") :
   // tiennent directement dans la barre basse mobile, aucune curation requise.
   const items = NAV_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin);
 
