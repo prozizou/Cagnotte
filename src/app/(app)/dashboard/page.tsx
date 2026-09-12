@@ -211,8 +211,8 @@ export default function DashboardPage() {
                 formatter={(v, name) => [formatFCFA(Number(v)), name === "cumulative" ? "Cumulé" : "Collecté"]}
                 contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
               />
-              <Bar dataKey="amount" fill="#c7d2fe" radius={[4, 4, 0, 0]} maxBarSize={28} />
-              <Line type="monotone" dataKey="cumulative" stroke="#4338ca" strokeWidth={2.5} dot={false} />
+              <Bar dataKey="amount" fill="#bbf7d0" radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Line type="monotone" dataKey="cumulative" stroke="#166534" strokeWidth={2.5} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
@@ -233,7 +233,7 @@ export default function DashboardPage() {
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={70} tickFormatter={(v) => Number(v).toLocaleString("fr-FR")} />
               <Tooltip formatter={(v) => formatFCFA(Number(v))} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
-              <Bar dataKey="total" fill="#4338ca" radius={[6, 6, 0, 0]} maxBarSize={44} />
+              <Bar dataKey="total" fill="#166534" radius={[6, 6, 0, 0]} maxBarSize={44} />
             </BarChart>
           </ResponsiveContainer>
         )}
