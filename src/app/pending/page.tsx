@@ -54,7 +54,7 @@ export default function PendingPage() {
   const Icon = content.icon;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-indigo-50 px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-green-50 px-4 py-10">
       <div className="w-full max-w-sm text-center">
         <div className="flex justify-center">
           <Logo size={40} />

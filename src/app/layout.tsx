@@ -4,6 +4,8 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { InstallPwaPrompt } from "@/components/pwa/InstallPwaPrompt";
+import { PwaServiceWorker } from "@/components/pwa/PwaServiceWorker";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -24,7 +26,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#4338ca",
+  themeColor: "#166534",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -33,6 +35,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <AuthProvider>
           {children}
+          <PwaServiceWorker />
+          <InstallPwaPrompt />
           <Toaster
             position="bottom-center"
             toastOptions={{

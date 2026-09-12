@@ -162,15 +162,15 @@ export default function CagnotteRapportPage() {
             <AreaChart data={cumulative} margin={{ left: -18, right: 8 }}>
               <defs>
                 <linearGradient id="fillCumulative" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4338ca" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#4338ca" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor="#166534" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#166534" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} stroke="#e2e8f0" />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={70} tickFormatter={(v) => Number(v).toLocaleString("fr-FR")} />
               <Tooltip formatter={(v) => formatFCFA(Number(v))} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
-              <Area type="monotone" dataKey="cumulative" stroke="#4338ca" strokeWidth={2.5} fill="url(#fillCumulative)" />
+              <Area type="monotone" dataKey="cumulative" stroke="#166534" strokeWidth={2.5} fill="url(#fillCumulative)" />
             </AreaChart>
           </ResponsiveContainer>
         )}

@@ -9,7 +9,7 @@ export function generateBilanPDF(cagnotte: Cagnotte, stats: CagnotteStats, cotis
   const marginX = 40;
   let y = 50;
 
-  doc.setFillColor(67, 56, 202);
+  doc.setFillColor(22, 101, 52);
   doc.rect(0, 0, 595, 90, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
@@ -70,7 +70,7 @@ export function generateBilanPDF(cagnotte: Cagnotte, stats: CagnotteStats, cotis
       .slice()
       .sort((a, b) => b.date.localeCompare(a.date))
       .map((c, i) => [String(i + 1), c.name, formatFCFA(c.amount), formatDate(c.date), c.comment || "—"]),
-    headStyles: { fillColor: [67, 56, 202], textColor: 255, fontSize: 9 },
+    headStyles: { fillColor: [22, 101, 52], textColor: 255, fontSize: 9 },
     bodyStyles: { fontSize: 9 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
   });
