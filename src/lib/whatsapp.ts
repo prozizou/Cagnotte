@@ -37,6 +37,15 @@ export function buildDetailedListMessage(cagnotte: Cagnotte, cotisations: Cotisa
   return lines.join("\n");
 }
 
+// La liste reçue par buildGroupShareMessage est généralement déjà triée
+// (la fiche cagnotte affiche les cotisations les plus récentes en premier),
+// mais l'annonce de groupe doit lister les dons dans l'ordre où ils sont
+// arrivés (comme sur Firebase, du plus ancien au plus récent) — on retrie
+// donc ici sur createdAt, indépendamment de l'ordre transmis par l'appelant.
+function sortByCreatedAtAsc(list: Cotisation[]): Cotisation[] {
+  return [...list].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+}
+
 // Formulation dédiée à l'annonce de groupe (buildGroupShareMessage) :
 // volontairement plus explicite que CAGNOTTE_STATUS_LABELS (qui sert aux
 // badges de l'interface), pour donner d'un coup d'œil l'état de la collecte
@@ -84,7 +93,7 @@ export function buildGroupShareMessage(cagnotte: Cagnotte, stats: CagnotteStats,
   if (cotisations.length === 0) {
     lines.push("_Aucune cotisation enregistrée._");
   } else {
-    cotisations.forEach((c, i) => {
+    sortByCreatedAtAsc(cotisations).forEach((c, i) => {
       lines.push(`${i + 1} - ${c.name} : ${formatFCFA(c.amount)}`);
     });
   }
