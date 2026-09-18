@@ -7,6 +7,13 @@
 // automatiquement approuvé et promu "superadmin" à la première connexion.
 export const SUPER_ADMIN_EMAIL = "prozizou298@gmail.com";
 
+// Numéro de contact du Super Admin pour les demandes de création/validation
+// de compte : aucune inscription libre dans l'app (accès strictement sur
+// invitation), donc un visiteur — ou un nouvel utilisateur connecté via
+// Google mais pas encore autorisé — n'a pas d'autre moyen de joindre
+// l'administrateur. Partagé entre l'écran de connexion et l'écran d'attente.
+export const SUPER_ADMIN_WHATSAPP = "+221 77 350 05 95";
+
 export const APP_NAME = "CagnottePro";
 export const APP_TAGLINE = "Gestion administrative des cagnottes et cotisations";
 
