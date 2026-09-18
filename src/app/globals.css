@@ -88,6 +88,15 @@ body {
 }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
+/* Signale qu'une zone défile encore horizontalement au-delà du bord visible
+   (ex. dernière puce de filtre partiellement visible) en estompant son
+   contenu en fondu plutôt que de le couper net — sans dépendre d'une
+   barre de défilement, retirée par .scrollbar-none. */
+.scroll-fade-x {
+  mask-image: linear-gradient(to right, black 0%, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 0%, black calc(100% - 28px), transparent 100%);
+}
+
 @media print {
   .no-print { display: none !important; }
 }
