@@ -57,6 +57,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Filet de sécurité : aucun élément ne devrait jamais provoquer de
+     défilement horizontal global (chaque zone qui en a besoin, ex. les
+     filtres, le contient elle-même via overflow-x-auto) — ce défilement de
+     secours masque un dépassement résiduel plutôt que de le rendre visible. */
+  overflow-x: hidden;
 }
 
 @keyframes skeleton-pulse {
@@ -74,8 +79,14 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
+/* Défilement horizontal contenu à sa seule zone (ex. chips de filtres) sans
+   barre de défilement visible — le défilement reste utilisable au doigt/à
+   la molette, seule son indication visuelle disparaît. */
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Edge historique */
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
 
 @media print {
   .no-print { display: none !important; }
