@@ -5,7 +5,7 @@
 // cache — jamais les routes /api/*, ni aucune requête vers Firebase/
 // Cloudinary, qui doivent toujours être servies en direct (données en
 // temps réel, jamais périmées).
-const CACHE_NAME = "cagnottepro-shell-v1";
+const CACHE_NAME = "cagnottepro-shell-v2";
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
   "/favicon-32.png",
