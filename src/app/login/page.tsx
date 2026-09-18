@@ -4,35 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
-import { Field, inputClass } from "@/components/ui/Field";
 import { APP_NAME, APP_TAGLINE, SUPER_ADMIN_WHATSAPP } from "@/lib/constants";
+import { whatsAppContactUrl } from "@/lib/whatsapp";
 import toast from "react-hot-toast";
-import { ShieldCheck, TrendingUp, Users2, Eye, EyeOff, Phone } from "lucide-react";
-
-function authErrorMessage(code: string | undefined): string {
-  switch (code) {
-    case "auth/invalid-credential":
-    case "auth/invalid-login-credentials":
-    case "auth/wrong-password":
-    case "auth/user-not-found":
-      return "Email ou mot de passe incorrect.";
-    case "auth/too-many-requests":
-      return "Trop de tentatives. Réessayez dans quelques minutes.";
-    case "auth/invalid-email":
-      return "Adresse email invalide.";
-    default:
-      return "Connexion impossible. Réessayez.";
-  }
-}
+import { ShieldCheck, TrendingUp, Users2, Phone } from "lucide-react";
 
 export default function LoginPage() {
-  const { firebaseUser, profile, loading, profileLoading, signInWithGoogle, signInWithEmail, sendPasswordReset } = useAuth();
+  const { firebaseUser, profile, loading, profileLoading, signInWithGoogle } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
-  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (loading || profileLoading || !firebaseUser) return;
@@ -42,38 +22,6 @@ export default function LoginPage() {
       router.replace("/dashboard");
     }
   }, [firebaseUser, profile, loading, profileLoading, router]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim() || !password) {
-      toast.error("Renseignez votre email et votre mot de passe.");
-      return;
-    }
-    setSigningIn(true);
-    try {
-      await signInWithEmail(email.trim(), password);
-    } catch (err) {
-      toast.error(authErrorMessage((err as { code?: string })?.code));
-    } finally {
-      setSigningIn(false);
-    }
-  }
-
-  async function handleForgotPassword() {
-    if (!email.trim()) {
-      toast.error("Saisissez d'abord votre email ci-dessus.");
-      return;
-    }
-    setResetting(true);
-    try {
-      await sendPasswordReset(email.trim());
-      toast.success("Email de réinitialisation envoyé ✔ (vérifiez vos spams)");
-    } catch (err) {
-      toast.error(authErrorMessage((err as { code?: string })?.code));
-    } finally {
-      setResetting(false);
-    }
-  }
 
   async function handleGoogleSignIn() {
     setSigningIn(true);
@@ -98,77 +46,20 @@ export default function LoginPage() {
           <p className="mt-1.5 text-sm text-muted">{APP_TAGLINE}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-3.5 rounded-2xl border border-line bg-surface p-6 shadow-sm">
-          <Field label="Email" required>
-            <input
-              type="email"
-              autoComplete="username"
-              className={inputClass}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="nom@exemple.com"
-              autoFocus
-            />
-          </Field>
-          <Field label="Mot de passe" required>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                className={`${inputClass} pr-10`}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
-                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </Field>
-
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            disabled={resetting}
-            className="text-xs font-medium text-primary hover:underline disabled:opacity-60"
-          >
-            {resetting ? "Envoi…" : "Mot de passe oublié ?"}
-          </button>
-
-          <button
-            type="submit"
-            disabled={signingIn}
-            className="flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
-          >
-            {signingIn ? "Connexion…" : "Se connecter"}
-          </button>
-
-          <p className="text-center text-xs leading-relaxed text-muted">
-            Connectez-vous avec les identifiants fournis par votre administrateur.
-          </p>
-
-          <div className="flex items-center gap-3 pt-1">
-            <div className="h-px flex-1 bg-line" />
-            <span className="text-xs font-medium text-muted">ou</span>
-            <div className="h-px flex-1 bg-line" />
-          </div>
-
+        <div className="mt-8 rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={signingIn}
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted-soft disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-3.5 text-sm font-semibold text-foreground hover:bg-muted-soft disabled:opacity-60"
           >
-            <GoogleIcon size={18} />
-            Continuer avec Google
+            <GoogleIcon size={20} />
+            {signingIn ? "Connexion…" : "Continuer avec Google"}
           </button>
-          <p className="text-center text-xs text-muted">Accès immédiat avec votre compte Google.</p>
-        </form>
+          <p className="mt-3 text-center text-xs leading-relaxed text-muted">
+            Accès immédiat avec votre compte Google — aucune inscription séparée nécessaire.
+          </p>
+        </div>
 
         <div className="mt-8 grid grid-cols-3 gap-3 text-center">
           <Feature icon={Users2} label="Multi-utilisateur" />
@@ -177,7 +68,9 @@ export default function LoginPage() {
         </div>
 
         <a
-          href={`tel:${SUPER_ADMIN_WHATSAPP.replace(/\s/g, "")}`}
+          href={whatsAppContactUrl(SUPER_ADMIN_WHATSAPP, `Bonjour, j'ai besoin d'assistance concernant ${APP_NAME}.`)}
+          target="_blank"
+          rel="noopener noreferrer"
           className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted hover:text-foreground"
         >
           <Phone size={13} />

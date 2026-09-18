@@ -3,7 +3,7 @@
 import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, LogOut, Plus, ShieldCheck, Receipt, Wallet, UserPlus } from "lucide-react";
+import { Menu, X, LogOut, Plus, ShieldCheck, Receipt, Wallet } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePendingUsersCount } from "@/hooks/usePendingUsersCount";
@@ -187,7 +187,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 // utilisateur), pour éviter toute erreur de clic.
 function QuickAddButton() {
   const router = useRouter();
-  const { isSuperAdmin } = useAuth();
   const { cagnottes } = useCagnottes();
   const [open, setOpen] = useState(false);
   const [pickingCagnotte, setPickingCagnotte] = useState(false);
@@ -221,9 +220,6 @@ function QuickAddButton() {
               <>
                 <QuickAddItem icon={Receipt} label="Nouvelle cotisation" onClick={() => setPickingCagnotte(true)} />
                 <QuickAddItem icon={Wallet} label="Nouvelle cagnotte" onClick={() => goTo("/cagnottes/new")} />
-                {isSuperAdmin && (
-                  <QuickAddItem icon={UserPlus} label="Ajouter / inviter un utilisateur" onClick={() => goTo("/utilisateurs?preapprove=1")} />
-                )}
               </>
             ) : (
               <div className="max-h-64 overflow-y-auto">
