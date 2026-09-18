@@ -4,8 +4,12 @@
 // Principes (identiques à l'ancienne version Firestore) :
 //  - Aucune donnée n'est accessible sans authentification Google.
 //  - Un compte doit être au statut "approved" pour lire/écrire des données
-//    métier (cagnottes, cotisations). Un utilisateur ne peut jamais
-//    s'auto-approuver, changer son propre statut ou son propre rôle.
+//    métier (cagnottes, cotisations). Toute personne se connectant avec un
+//    compte Google obtient directement le statut "approved" à la création
+//    de son profil (première connexion) — accès libre, aucune file
+//    d'attente d'autorisation. Un utilisateur ne peut en revanche jamais
+//    changer son statut ou son rôle une fois son profil créé (seul le
+//    Super Admin le peut, ex. pour suspendre un compte).
 //  - Chaque cagnotte et ses cotisations appartiennent à un seul propriétaire
 //    (ownerId) : un utilisateur standard ne voit et ne modifie que ses
 //    propres données. Le Super Administrateur peut tout lire et gérer les
@@ -35,14 +39,17 @@
         ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'superadmin')",
 
         ".write": "auth != null && (
-            // création par l'utilisateur lui-même, à la première connexion
+            // création par l'utilisateur lui-même, à la première connexion —
+            // toujours 'approved' immédiatement (aucune file d'attente),
+            // superadmin réservé au seul email désigné.
             (!data.exists() && newData.exists() && auth.uid === $uid
               && newData.child('uid').val() === $uid
               && newData.child('email').val() === auth.token.email
               && newData.hasChildren(['uid','email','displayName','status','role'])
+              && newData.child('status').val() === 'approved'
               && (
-                (auth.token.email === 'prozizou298@gmail.com' && newData.child('role').val() === 'superadmin' && newData.child('status').val() === 'approved')
-                || (auth.token.email !== 'prozizou298@gmail.com' && newData.child('role').val() === 'user' && newData.child('status').val() === 'pending')
+                (auth.token.email === 'prozizou298@gmail.com' && newData.child('role').val() === 'superadmin')
+                || (auth.token.email !== 'prozizou298@gmail.com' && newData.child('role').val() === 'user')
               )
             )
             // pré-approbation par le Super Admin (création pour un autre uid, avant sa première connexion)
