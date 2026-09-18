@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
-import { SUPER_ADMIN_WHATSAPP } from "@/lib/constants";
+import { APP_NAME, SUPER_ADMIN_WHATSAPP } from "@/lib/constants";
+import { whatsAppContactUrl } from "@/lib/whatsapp";
 import { Clock, ShieldX, ShieldAlert, LogOut, AlertTriangle, RotateCw, Phone } from "lucide-react";
 
 const CONTENT: Record<string, { icon: typeof Clock; title: string; desc: string; tone: string }> = {
@@ -96,7 +97,9 @@ export default function PendingPage() {
         </div>
 
         <a
-          href={`tel:${SUPER_ADMIN_WHATSAPP.replace(/\s/g, "")}`}
+          href={whatsAppContactUrl(SUPER_ADMIN_WHATSAPP, `Bonjour, j'ai besoin d'assistance concernant ${APP_NAME}.`)}
+          target="_blank"
+          rel="noopener noreferrer"
           className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted hover:text-foreground"
         >
           <Phone size={13} />
