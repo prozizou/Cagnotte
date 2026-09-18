@@ -6,15 +6,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
 import { Field, inputClass } from "@/components/ui/Field";
 import { WhatsAppIcon } from "@/components/cagnottes/ContactsList";
-import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { APP_NAME, APP_TAGLINE, SUPER_ADMIN_WHATSAPP } from "@/lib/constants";
 import { whatsAppContactUrl } from "@/lib/whatsapp";
 import toast from "react-hot-toast";
 import { ShieldCheck, TrendingUp, Users2, Eye, EyeOff } from "lucide-react";
 
-// Numéro de contact pour les demandes de création de compte : aucune
-// inscription libre dans l'app (accès strictement sur invitation), donc un
-// visiteur sans identifiants n'a aucun autre moyen d'en obtenir.
-const SIGNUP_WHATSAPP_NUMBER = "+221 77 350 05 95";
 const SIGNUP_WHATSAPP_MESSAGE = `Bonjour, je souhaite obtenir un compte sur ${APP_NAME}.`;
 
 function authErrorMessage(code: string | undefined): string {
@@ -83,7 +79,7 @@ export default function LoginPage() {
     }
   }
 
-  async function handleGoogleFallback() {
+  async function handleGoogleSignIn() {
     setSigningIn(true);
     try {
       await signInWithGoogle();
@@ -160,18 +156,25 @@ export default function LoginPage() {
             Connectez-vous avec les identifiants fournis par votre administrateur.
           </p>
 
+          <div className="flex items-center gap-3 pt-1">
+            <div className="h-px flex-1 bg-line" />
+            <span className="text-xs font-medium text-muted">ou</span>
+            <div className="h-px flex-1 bg-line" />
+          </div>
+
           <button
             type="button"
-            onClick={handleGoogleFallback}
+            onClick={handleGoogleSignIn}
             disabled={signingIn}
-            className="mx-auto block text-xs font-medium text-muted hover:text-foreground hover:underline"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted-soft disabled:opacity-60"
           >
-            Compte déjà lié à Google ? Se connecter avec Google
+            <GoogleIcon size={18} />
+            Continuer avec Google
           </button>
         </form>
 
         <a
-          href={whatsAppContactUrl(SIGNUP_WHATSAPP_NUMBER, SIGNUP_WHATSAPP_MESSAGE)}
+          href={whatsAppContactUrl(SUPER_ADMIN_WHATSAPP, SIGNUP_WHATSAPP_MESSAGE)}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-whatsapp/30 bg-whatsapp/10 px-4 py-3 text-sm font-semibold text-whatsapp-dark hover:bg-whatsapp/15"
@@ -198,5 +201,16 @@ function Feature({ icon: Icon, label }: { icon: typeof Users2; label: string }) 
       </span>
       <span className="text-[11px] font-medium text-muted">{label}</span>
     </div>
+  );
+}
+
+function GoogleIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 10.1-2 13.7-5.2l-6.3-5.3C29.4 35.5 26.8 36 24 36c-5.2 0-9.6-3.1-11.3-7.6l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.7l6.3 5.3C39.7 37 44 31 44 24c0-1.3-.1-2.7-.4-3.5z" />
+    </svg>
   );
 }
