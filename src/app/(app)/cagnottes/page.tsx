@@ -79,7 +79,7 @@ export default function CagnottesListPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none scroll-fade-x">
           {FILTERS.map((f) => (
             <button
               key={f.value}

@@ -73,7 +73,7 @@ export default function UtilisateursPage() {
         <p className="text-sm text-muted">Autorisez, refusez ou suspendez l&apos;accès des utilisateurs à la plateforme.</p>
       </div>
 
-      <div className="flex gap-1.5 overflow-x-auto scrollbar-thin">
+      <div className="flex gap-1.5 overflow-x-auto scrollbar-none scroll-fade-x">
         {FILTERS.map((f) => (
           <button
             key={f.value}
