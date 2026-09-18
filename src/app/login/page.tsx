@@ -5,13 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
 import { Field, inputClass } from "@/components/ui/Field";
-import { WhatsAppIcon } from "@/components/cagnottes/ContactsList";
 import { APP_NAME, APP_TAGLINE, SUPER_ADMIN_WHATSAPP } from "@/lib/constants";
-import { whatsAppContactUrl } from "@/lib/whatsapp";
 import toast from "react-hot-toast";
-import { ShieldCheck, TrendingUp, Users2, Eye, EyeOff } from "lucide-react";
-
-const SIGNUP_WHATSAPP_MESSAGE = `Bonjour, je souhaite obtenir un compte sur ${APP_NAME}.`;
+import { ShieldCheck, TrendingUp, Users2, Eye, EyeOff, Phone } from "lucide-react";
 
 function authErrorMessage(code: string | undefined): string {
   switch (code) {
@@ -171,23 +167,22 @@ export default function LoginPage() {
             <GoogleIcon size={18} />
             Continuer avec Google
           </button>
+          <p className="text-center text-xs text-muted">Accès immédiat avec votre compte Google.</p>
         </form>
-
-        <a
-          href={whatsAppContactUrl(SUPER_ADMIN_WHATSAPP, SIGNUP_WHATSAPP_MESSAGE)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-whatsapp/30 bg-whatsapp/10 px-4 py-3 text-sm font-semibold text-whatsapp-dark hover:bg-whatsapp/15"
-        >
-          <WhatsAppIcon size={17} />
-          Pas encore de compte ? Contactez-nous sur WhatsApp
-        </a>
 
         <div className="mt-8 grid grid-cols-3 gap-3 text-center">
           <Feature icon={Users2} label="Multi-utilisateur" />
           <Feature icon={TrendingUp} label="Suivi d'objectif" />
           <Feature icon={ShieldCheck} label="Accès sécurisé" />
         </div>
+
+        <a
+          href={`tel:${SUPER_ADMIN_WHATSAPP.replace(/\s/g, "")}`}
+          className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted hover:text-foreground"
+        >
+          <Phone size={13} />
+          Assistance : {SUPER_ADMIN_WHATSAPP}
+        </a>
       </div>
     </div>
   );

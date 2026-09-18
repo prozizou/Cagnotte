@@ -69,11 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileError(false);
     const profileRef = ref(db, `users/${firebaseUser.uid}`);
 
-    // À la première connexion, on crée le profil Realtime Database de
-    // l'utilisateur. Le compte du Super Administrateur est auto-approuvé ;
-    // tout autre compte démarre en statut "pending" et attend une
-    // autorisation. Les règles de sécurité vérifient indépendamment cette
-    // logique (un utilisateur ne peut pas s'auto-approuver).
+    // À la première connexion (avec Google — seul moyen de créer un compte
+    // soi-même), on crée le profil Realtime Database de l'utilisateur,
+    // directement au statut "approved" : accès libre à quiconque possède un
+    // compte Google, sans file d'attente d'autorisation. Le Super Admin
+    // reste le seul compte promu "superadmin" (email désigné). Les règles de
+    // sécurité (database.rules.json) appliquent indépendamment cette même
+    // logique — les deux doivent rester alignés.
     async function bootstrapProfile() {
       const isSuperAdminEmail = firebaseUser!.email === SUPER_ADMIN_EMAIL;
       await set(profileRef, {
@@ -81,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: firebaseUser!.email || "",
         displayName: firebaseUser!.displayName || firebaseUser!.email || "Utilisateur",
         photoURL: firebaseUser!.photoURL || null,
-        status: isSuperAdminEmail ? "approved" : "pending",
+        status: "approved",
         role: isSuperAdminEmail ? "superadmin" : "user",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

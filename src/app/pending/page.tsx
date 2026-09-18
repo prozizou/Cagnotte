@@ -4,16 +4,14 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
-import { WhatsAppIcon } from "@/components/cagnottes/ContactsList";
-import { whatsAppContactUrl } from "@/lib/whatsapp";
-import { APP_NAME, SUPER_ADMIN_WHATSAPP } from "@/lib/constants";
-import { Clock, ShieldX, ShieldAlert, LogOut, AlertTriangle, RotateCw } from "lucide-react";
+import { SUPER_ADMIN_WHATSAPP } from "@/lib/constants";
+import { Clock, ShieldX, ShieldAlert, LogOut, AlertTriangle, RotateCw, Phone } from "lucide-react";
 
 const CONTENT: Record<string, { icon: typeof Clock; title: string; desc: string; tone: string }> = {
   pending: {
     icon: Clock,
     title: "Votre demande d'accès est en attente d'autorisation",
-    desc: "Un administrateur doit approuver votre compte avant que vous puissiez accéder à l'application. Pour accélérer le traitement, contactez-le directement sur WhatsApp ci-dessous.",
+    desc: "Un administrateur doit approuver votre compte avant que vous puissiez accéder à l'application. Vous recevrez l'accès dès que votre demande sera traitée.",
     tone: "warning",
   },
   rejected: {
@@ -80,27 +78,6 @@ export default function PendingPage() {
             </div>
           )}
 
-          {/* Aucune inscription libre : un compte "pending" vient toujours
-              d'une première connexion Google (voir createUserAccount, qui
-              approuve directement les comptes email/mot de passe créés par
-              l'administrateur) — ce visiteur n'a donc pas d'autre moyen de
-              joindre le Super Admin que ce bouton, avec ses informations déjà
-              pré-remplies dans le message. */}
-          {status === "pending" && profile && (
-            <a
-              href={whatsAppContactUrl(
-                SUPER_ADMIN_WHATSAPP,
-                `Bonjour, je viens de créer un compte sur ${APP_NAME} avec Google.\nNom : ${profile.displayName}\nEmail : ${profile.email}\nMerci de valider mon accès.`
-              )}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-whatsapp px-4 py-3 text-sm font-semibold text-white hover:bg-whatsapp-dark"
-            >
-              <WhatsAppIcon size={17} />
-              Finaliser ma demande sur WhatsApp
-            </a>
-          )}
-
           {profileError && (
             <button
               onClick={() => window.location.reload()}
@@ -117,6 +94,14 @@ export default function PendingPage() {
             <LogOut size={15} /> Se déconnecter
           </button>
         </div>
+
+        <a
+          href={`tel:${SUPER_ADMIN_WHATSAPP.replace(/\s/g, "")}`}
+          className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted hover:text-foreground"
+        >
+          <Phone size={13} />
+          Assistance : {SUPER_ADMIN_WHATSAPP}
+        </a>
       </div>
     </div>
   );
