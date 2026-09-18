@@ -141,12 +141,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-6 lg:px-8 lg:pb-6">
+        <main className="flex-1 px-4 py-5 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8 lg:pb-6">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
 
-        {/* Navigation basse — mobile */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface/95 backdrop-blur lg:hidden">
+        {/* Navigation basse — mobile. pb-[env(safe-area-inset-bottom)] écarte
+            les cibles tactiles de la barre gestuelle/l'encoche des iPhone
+            récents (la marge grandit avec main ci-dessus, dans la même
+            mesure, pour ne jamais masquer le contenu de la page). */}
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
           {items.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             const badge = item.href === "/utilisateurs" ? pendingCount : 0;

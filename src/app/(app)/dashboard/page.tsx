@@ -307,7 +307,7 @@ export default function DashboardPage() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(280px,100%),1fr))] gap-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="skeleton h-32 rounded-2xl" />
               ))}
@@ -324,7 +324,7 @@ export default function DashboardPage() {
               }
             />
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(280px,100%),1fr))] gap-3">
               {cagnottes.slice(0, 6).map((c) => {
                 const total = cotisations.filter((x) => x.cagnotteId === c.id).reduce((s, x) => s + x.amount, 0);
                 const pct = c.goalAmount > 0 ? Math.min(100, (total / c.goalAmount) * 100) : 0;
@@ -332,11 +332,13 @@ export default function DashboardPage() {
                   <Link
                     key={c.id}
                     href={`/cagnottes/${c.id}`}
-                    className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                    className="min-w-0 rounded-2xl border border-line bg-surface p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
-                      <CagnotteStatusBadge status={c.status} />
+                    <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                      <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{c.title}</h3>
+                      <span className="flex-shrink-0">
+                        <CagnotteStatusBadge status={c.status} />
+                      </span>
                     </div>
                     <p className="mt-2 text-xs text-muted">{formatFCFA(total)} collecté{c.goalAmount ? ` sur ${formatFCFA(c.goalAmount)}` : ""}</p>
                     {c.goalAmount > 0 && (

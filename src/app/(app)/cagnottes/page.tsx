@@ -10,7 +10,7 @@ import { useOwnerCotisations } from "@/hooks/useOwnerCotisations";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CagnotteStatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { formatFCFA, formatDate } from "@/lib/format";
+import { formatFCFA, formatDate, formatPct } from "@/lib/format";
 import { CAGNOTTE_STATUS_LABELS } from "@/lib/constants";
 import { CagnotteStatus } from "@/lib/types";
 
@@ -58,9 +58,12 @@ export default function CagnottesListPage() {
             {isSuperAdmin && " · toute la plateforme"}
           </p>
         </div>
+        {/* Masqué sur mobile : le bouton "+" de l'en-tête propose déjà
+            "Nouvelle cagnotte" (même logique que le tableau de bord) —
+            éviter que les deux actions identiques coexistent au même écran. */}
         <Link
           href="/cagnottes/new"
-          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+          className="hidden items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark sm:flex"
         >
           <Plus size={16} /> Nouvelle cagnotte
         </Link>
@@ -76,7 +79,7 @@ export default function CagnottesListPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-thin">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -93,9 +96,9 @@ export default function CagnottesListPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton h-36 rounded-2xl" />
+            <div key={i} className="skeleton h-56 rounded-2xl" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -116,7 +119,7 @@ export default function CagnottesListPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-3">
           {filtered.map((c) => {
             const total = totalsByCagnotte.get(c.id) || 0;
             const pct = c.goalAmount > 0 ? Math.min(100, (total / c.goalAmount) * 100) : 0;
@@ -124,28 +127,33 @@ export default function CagnottesListPage() {
               <Link
                 key={c.id}
                 href={`/cagnottes/${c.id}`}
-                className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                className="min-w-0 overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition hover:border-primary/40 hover:shadow-md"
               >
                 {c.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.imageUrl} alt="" className="h-28 w-full object-cover" />
+                  <img src={c.imageUrl} alt="" className="aspect-[16/7] w-full object-cover" />
                 )}
                 <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="truncate text-sm font-semibold text-foreground">{c.title}</h3>
-                    <CagnotteStatusBadge status={c.status} />
+                  <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                    <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{c.title}</h3>
+                    <span className="flex-shrink-0">
+                      <CagnotteStatusBadge status={c.status} />
+                    </span>
                   </div>
                   {isSuperAdmin && c.ownerName && (
                     <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{c.ownerName}</p>
                   )}
                   <p className="mt-1 line-clamp-1 text-xs text-muted">{c.description || "—"}</p>
-                  <p className="mt-3 text-sm font-bold text-foreground">
+                  <p className="mt-3 break-words text-sm font-bold text-foreground">
                     {formatFCFA(total)}
                     {c.goalAmount > 0 && <span className="ml-1 text-xs font-normal text-muted">/ {formatFCFA(c.goalAmount)}</span>}
                   </p>
                   {c.goalAmount > 0 && (
-                    <div className="mt-2">
-                      <ProgressBar pct={pct} size="sm" />
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex-1">
+                        <ProgressBar pct={pct} size="sm" />
+                      </div>
+                      <span className="flex-shrink-0 text-[11px] font-semibold text-primary">{formatPct(pct)}</span>
                     </div>
                   )}
                   <p className="mt-3 text-[11px] text-muted">
