@@ -148,37 +148,37 @@ export function CotisationsTable({
               boutons Modifier/Supprimer exposés en pleine largeur — les
               actions passent dans un menu "⋮" (voir ActionMenu), pour que la
               suppression ne soit jamais à portée d'un tap accidentel. */}
-          <div className="space-y-2 sm:hidden">
+          <div className="space-y-1.5 sm:hidden">
             {paged.map((c) => (
-              <div key={c.id} className="rounded-xl border border-line bg-surface px-3.5 py-3 shadow-sm">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-semibold text-foreground">
+              <div key={c.id} className="flex items-center gap-2 rounded-xl border border-line bg-surface py-2 pl-3.5 pr-1.5 shadow-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground">
                     <span className="truncate">{c.name}</span>
                     {c.comment && <MessageSquare size={11} className="flex-shrink-0 text-muted" aria-label="Commentaire" />}
                   </p>
-                  <p className="flex-shrink-0 text-sm font-bold tabular-nums text-success">{formatFCFA(c.amount)}</p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted">
+                    <span className="truncate">
+                      {formatDate(c.date)}
+                      {c.createdByName ? ` · ${c.createdByName}` : ""}
+                    </span>
+                    {wasEdited(c) && (
+                      <span className="flex-shrink-0 rounded-full bg-muted-soft px-1.5 py-0.5 text-[10px] font-medium">Modifié</span>
+                    )}
+                  </p>
                 </div>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <p className="text-xs text-muted">{formatDate(c.date)}</p>
-                  {wasEdited(c) && (
-                    <span className="rounded-full bg-muted-soft px-1.5 py-0.5 text-[10px] font-medium text-muted">Modifié</span>
-                  )}
-                </div>
-                <div className="mt-1.5 flex items-center justify-between gap-2">
-                  <p className="truncate text-[11px] text-muted">Enregistrée par {c.createdByName || "—"}</p>
-                  <ActionMenu
-                    ariaLabel={`Actions pour la cotisation de ${c.name}`}
-                    items={[
-                      { label: "Voir les détails", icon: Eye, onClick: () => setDetails(c) },
-                      ...(!readOnly
-                        ? [
-                            { label: "Modifier", icon: Pencil, onClick: () => onEdit(c) },
-                            { label: "Supprimer", icon: Trash2, onClick: () => onDelete(c), tone: "danger" as const },
-                          ]
-                        : []),
-                    ]}
-                  />
-                </div>
+                <p className="flex-shrink-0 text-sm font-bold tabular-nums text-success">{formatFCFA(c.amount)}</p>
+                <ActionMenu
+                  ariaLabel={`Actions pour la cotisation de ${c.name}`}
+                  items={[
+                    { label: "Voir les détails", icon: Eye, onClick: () => setDetails(c) },
+                    ...(!readOnly
+                      ? [
+                          { label: "Modifier", icon: Pencil, onClick: () => onEdit(c) },
+                          { label: "Supprimer", icon: Trash2, onClick: () => onDelete(c), tone: "danger" as const },
+                        ]
+                      : []),
+                  ]}
+                />
               </div>
             ))}
           </div>

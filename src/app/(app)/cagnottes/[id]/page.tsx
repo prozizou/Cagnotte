@@ -9,10 +9,6 @@ import {
   Plus,
   Share2,
   BarChart3,
-  Target,
-  Users,
-  TrendingUp,
-  Trophy,
   Clock3,
   Archive,
   RotateCcw,
@@ -25,7 +21,7 @@ import { subscribeCagnotte, setCagnotteStatus, deleteCagnotte } from "@/lib/data
 import { subscribeCotisations, addCotisation, updateCotisation, deleteCotisation } from "@/lib/data/cotisations";
 import { Cagnotte, Cotisation } from "@/lib/types";
 import { computeCagnotteStats } from "@/lib/stats";
-import { KPICard } from "@/components/ui/KPICard";
+import { ActionMenu } from "@/components/ui/ActionMenu";
 import { GoalProgressCard } from "@/components/ui/GoalProgressCard";
 import { CagnotteStatusBadge } from "@/components/ui/StatusBadge";
 import { ContactsList } from "@/components/cagnottes/ContactsList";
@@ -193,60 +189,77 @@ export default function CagnotteDetailPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <Link href="/cagnottes" className="flex items-center gap-1 text-sm text-muted hover:text-foreground">
         <ChevronLeft size={16} /> Mes cagnottes
       </Link>
 
-      {cagnotte.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={cagnotte.imageUrl} alt="" className="h-48 w-full rounded-2xl object-cover sm:h-64" />
-      )}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold text-foreground sm:text-2xl">{cagnotte.title}</h1>
+      {/* En-tête compact : miniature + titre + statut, actions secondaires
+          dans le menu "⋯" (Rapport, Modifier) pour ne garder qu'un bouton
+          principal visible. */}
+      <div className="flex items-start gap-3">
+        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-soft text-lg font-bold text-primary sm:h-20 sm:w-20">
+          {cagnotte.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={cagnotte.imageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            cagnotte.title.trim()[0]?.toUpperCase() || "C"
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h1 className="min-w-0 text-lg font-bold leading-tight text-foreground sm:text-2xl">{cagnotte.title}</h1>
             <CagnotteStatusBadge status={cagnotte.status} />
           </div>
-          {cagnotte.description && <p className="mt-1 max-w-2xl text-sm text-muted">{cagnotte.description}</p>}
-          <p className="mt-1.5 text-xs text-muted">
+          {cagnotte.description && (
+            <p className="mt-0.5 line-clamp-2 max-w-2xl text-sm text-muted">{cagnotte.description}</p>
+          )}
+          <p className="mt-0.5 text-xs text-muted">
             {formatDate(cagnotte.startDate)} → {cagnotte.endDate ? formatDate(cagnotte.endDate) : "indéterminée"}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/cagnottes/${id}/rapport`}
-            className="flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm font-medium text-foreground hover:bg-muted-soft"
-          >
-            <BarChart3 size={15} /> Rapport
-          </Link>
+        <div className="flex flex-shrink-0 items-center gap-1">
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 rounded-xl bg-whatsapp px-3.5 py-2 text-sm font-semibold text-white hover:bg-whatsapp-dark"
+            className="flex h-9 items-center gap-1.5 rounded-xl bg-whatsapp px-3 text-sm font-semibold text-white hover:bg-whatsapp-dark"
+            aria-label="Partager le bilan"
           >
-            <Share2 size={15} /> Partager le bilan
+            <Share2 size={15} /> <span className="hidden sm:inline">Partager le bilan</span>
           </button>
-          <Link
-            href={`/cagnottes/${id}/edit`}
-            className="flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-muted-soft"
-            aria-label="Modifier la cagnotte"
-          >
-            <Pencil size={15} />
-          </Link>
+          <ActionMenu
+            ariaLabel="Plus d'actions"
+            items={[
+              { label: "Rapport", icon: BarChart3, onClick: () => router.push(`/cagnottes/${id}/rapport`) },
+              { label: "Modifier la cagnotte", icon: Pencil, onClick: () => router.push(`/cagnottes/${id}/edit`) },
+            ]}
+          />
         </div>
       </div>
 
-      {/* Objectif & progression */}
-      <GoalProgressCard stats={stats} />
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KPICard icon={Target} label="Objectif" value={cagnotte.goalAmount > 0 ? formatFCFA(cagnotte.goalAmount) : "—"} />
-        <KPICard icon={Users} label="Cotisants" value={String(stats.contributorsCount)} hint={`${stats.entriesCount} entrée(s)`} />
-        <KPICard icon={TrendingUp} label="Moyenne" value={formatFCFA(stats.averageAmount)} />
-        <KPICard icon={Trophy} label="Plus forte" value={stats.maxContribution ? formatFCFA(stats.maxContribution.amount) : "—"} hint={stats.maxContribution?.name} />
-      </div>
+      {/* Bilan unique : collecté / objectif, progression, reste, puis
+          indicateurs secondaires sur une ligne (plus de tuile "Objectif"
+          en doublon ni de 4 cartes KPI). */}
+      <GoalProgressCard
+        compact
+        label="Collecté"
+        stats={stats}
+        footer={
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <span>
+              <span className="font-semibold text-foreground">{stats.contributorsCount}</span> cotisant
+              {stats.contributorsCount > 1 ? "s" : ""} · {stats.entriesCount} entrée{stats.entriesCount > 1 ? "s" : ""}
+            </span>
+            <span>
+              Moy. <span className="font-semibold text-foreground">{formatFCFA(stats.averageAmount)}</span>
+            </span>
+            {stats.maxContribution && (
+              <span>
+                Max <span className="font-semibold text-foreground">{formatFCFA(stats.maxContribution.amount)}</span>
+              </span>
+            )}
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Contacts */}
