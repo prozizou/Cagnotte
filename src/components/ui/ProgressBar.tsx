@@ -26,7 +26,7 @@ export function ProgressBar({
           "h-full rounded-full transition-all duration-500 ease-out",
           goalReached ? "bg-success" : "bg-primary"
         )}
-        style={{ width: `${clamped}%` }}
+        style={{ width: `${clamped}%`, minWidth: clamped > 0 ? 4 : 0 }}
       />
     </div>
   );
