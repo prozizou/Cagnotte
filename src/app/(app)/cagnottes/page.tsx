@@ -70,7 +70,7 @@ export default function CagnottesListPage() {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative sm:w-72">
+        <div className="relative min-w-0 sm:w-72">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -79,7 +79,7 @@ export default function CagnottesListPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none scroll-fade-x">
+        <div className="flex min-w-0 gap-1.5 overflow-x-auto scrollbar-none scroll-fade-x">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -96,9 +96,9 @@ export default function CagnottesListPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-3">
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton h-56 rounded-2xl" />
+            <div key={i} className="skeleton h-[104px] rounded-2xl" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -119,7 +119,7 @@ export default function CagnottesListPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-3">
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
           {filtered.map((c) => {
             const total = totalsByCagnotte.get(c.id) || 0;
             const pct = c.goalAmount > 0 ? Math.min(100, (total / c.goalAmount) * 100) : 0;
@@ -127,36 +127,39 @@ export default function CagnottesListPage() {
               <Link
                 key={c.id}
                 href={`/cagnottes/${c.id}`}
-                className="min-w-0 overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                className="flex min-w-0 items-center gap-3 rounded-2xl border border-line bg-surface p-3 shadow-sm transition hover:border-primary/40 hover:shadow-md"
               >
-                {c.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.imageUrl} alt="" className="aspect-[16/7] w-full object-cover" />
-                )}
-                <div className="p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-soft text-base font-bold text-primary">
+                  {c.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.imageUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    c.title.trim()[0]?.toUpperCase() || "C"
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
                     <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{c.title}</h3>
                     <span className="flex-shrink-0">
                       <CagnotteStatusBadge status={c.status} />
                     </span>
                   </div>
-                  {isSuperAdmin && c.ownerName && (
-                    <p className="mt-0.5 truncate text-[11px] font-medium text-primary">{c.ownerName}</p>
-                  )}
-                  <p className="mt-1 line-clamp-1 text-xs text-muted">{c.description || "—"}</p>
-                  <p className="mt-3 break-words text-sm font-bold text-foreground">
-                    {formatFCFA(total)}
-                    {c.goalAmount > 0 && <span className="ml-1 text-xs font-normal text-muted">/ {formatFCFA(c.goalAmount)}</span>}
-                  </p>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-base font-bold leading-none text-foreground">{formatFCFA(total)}</span>
+                    {c.goalAmount > 0 && (
+                      <span className="truncate text-[11px] text-muted">/ {formatFCFA(c.goalAmount)}</span>
+                    )}
+                  </div>
                   {c.goalAmount > 0 && (
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-1.5 flex items-center gap-2">
                       <div className="flex-1">
                         <ProgressBar pct={pct} size="sm" />
                       </div>
                       <span className="flex-shrink-0 text-[11px] font-semibold text-primary">{formatPct(pct)}</span>
                     </div>
                   )}
-                  <p className="mt-3 text-[11px] text-muted">
+                  <p className="mt-1 truncate text-[11px] text-muted">
+                    {isSuperAdmin && c.ownerName && <span className="font-medium text-primary">{c.ownerName} · </span>}
                     {formatDate(c.startDate)} → {c.endDate ? formatDate(c.endDate) : "indéterminée"}
                   </p>
                 </div>
